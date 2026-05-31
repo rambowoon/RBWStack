@@ -2984,7 +2984,7 @@ $cfg['SendErrorReports']              = 'never';
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.5.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.Equals("v1.1.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -4033,7 +4033,7 @@ $cfg['SendErrorReports']              = 'never';
             Label lblAboutDesc = new Label();
             lblAboutDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.5.0 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v1.1.0 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -4068,13 +4068,13 @@ $cfg['SendErrorReports']              = 'never';
                             
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.5.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.Equals("v1.1.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.5.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v1.1.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -7683,6 +7683,7 @@ $cfg['SendErrorReports']              = 'never';
                 using (var wc = new System.Net.WebClient())
                 {
                     wc.Headers.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                    wc.Encoding = System.Text.Encoding.UTF8;
                     string json = wc.DownloadString(url);
 
                     string tagName = "";
@@ -7710,8 +7711,17 @@ $cfg['SendErrorReports']              = 'never';
                         bridgeDownloadUrl = mBridgeUrls[0].Groups[1].Value;
                     }
 
-                    Match mBody = Regex.Match(json, @"""body""\s*:\s*""([^""]+)""");
-                    if (mBody.Success) body = mBody.Groups[1].Value.Replace("\\r\\n", "\r\n");
+                    Match mBody = Regex.Match(json, @"""body""\s*:\s*""((?:[^""\\]|\\.)*)""");
+                    if (mBody.Success)
+                    {
+                        body = mBody.Groups[1].Value;
+                        try
+                        {
+                            body = Regex.Unescape(body);
+                        }
+                        catch { }
+                        body = body.Replace("\\r\\n", "\r\n").Replace("\\n", "\n").Replace("\\r", "\r");
+                    }
 
                     if (!string.IsNullOrEmpty(tagName) && !string.IsNullOrEmpty(downloadUrl))
                     {
@@ -7750,7 +7760,7 @@ $cfg['SendErrorReports']              = 'never';
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.5.0  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v1.1.0  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
@@ -9362,6 +9372,130 @@ $cfg['SendErrorReports']              = 'never';
 
                     AppendLog("  Bridge URL: " + bridgeUrl, colorDim);
                     string bridgeRes = PostHttp(bridgeUrl, postData);
+
+                    // Auto-detect password error and retry
+                    if (!string.IsNullOrEmpty(bridgeRes) && 
+                        (bridgeRes.Contains("Access denied") || 
+                         bridgeRes.Contains("using password") || 
+                         bridgeRes.Contains("1045") ||
+                         bridgeRes.Contains("PDO Error") ||
+                         bridgeRes.Contains("sai mật khẩu")))
+                    {
+                        AppendLog("🔑 Phát hiện lỗi sai mật khẩu Database. Tiến hành tự động đồng bộ lại mật khẩu...", Color.FromArgb(245, 158, 11));
+                        try
+                        {
+                            if (string.IsNullOrEmpty(finalDbName))
+                            {
+                                string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
+                                string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                                finalDbName = mainUser + "_" + dbSuffix;
+                            }
+
+                            string passwordToSet = "";
+                            if (!string.IsNullOrEmpty(dbPass) && dbPass != "root" && dbPass != "123456" && dbPass != "12345678")
+                            {
+                                passwordToSet = dbPass;
+                            }
+                            else
+                            {
+                                // Download remote .env to read current password
+                                string remoteEnvTemp = Path.Combine(tempDir, "remote_env_" + jobId);
+                                string remoteEnvUrl = ftpBase + ".env";
+                                string ftpErr;
+                                if (DownloadFtp(remoteEnvUrl, ftpCreds, remoteEnvTemp, out ftpErr))
+                                {
+                                    if (File.Exists(remoteEnvTemp))
+                                    {
+                                        foreach (string line in File.ReadAllLines(remoteEnvTemp))
+                                        {
+                                            string trimmed = line.Trim();
+                                            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
+                                            int idx = trimmed.IndexOf('=');
+                                            if (idx <= 0) continue;
+                                            string key = trimmed.Substring(0, idx).Trim().ToUpper();
+                                            string val = trimmed.Substring(idx + 1).Trim().Trim('"', '\'');
+                                            if (key == "DB_PASSWORD" || key == "DB_PASS")
+                                            {
+                                                passwordToSet = val;
+                                                break;
+                                            }
+                                        }
+                                        File.Delete(remoteEnvTemp);
+                                    }
+                                }
+                            }
+
+                            if (string.IsNullOrEmpty(passwordToSet))
+                            {
+                                passwordToSet = finalDbPass;
+                            }
+                            if (string.IsNullOrEmpty(passwordToSet))
+                            {
+                                passwordToSet = GenerateRandomDbPass();
+                            }
+
+                            AppendLog("  DA API: Đang đổi mật khẩu của user \"" + finalDbName + "\" thành \"" + passwordToSet + "\"...", colorDim);
+                            string mainUserDA = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                            string dbModifyPostData = "action=passwd&db=" + Uri.EscapeDataString(finalDbName) + 
+                                                     "&user=" + Uri.EscapeDataString(finalDbName) + 
+                                                     "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
+                                                     "&passwd2=" + Uri.EscapeDataString(passwordToSet);
+                            CallDirectAdminDbApi(ftpHost, daPort, mainUserDA, ftpPass, dbModifyPostData);
+                            AppendLog("✅ DA API: Đổi mật khẩu Database thành công.", colorGreen);
+
+                            // Update remote .env via FTP
+                            string remoteEnvTemp2 = Path.Combine(tempDir, "remote_env_" + jobId);
+                            string remoteEnvUrl2 = ftpBase + ".env";
+                            string ftpErr2;
+                            DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                            
+                            List<string> envLines = new List<string>();
+                            if (File.Exists(remoteEnvTemp2))
+                            {
+                                envLines.AddRange(File.ReadAllLines(remoteEnvTemp2));
+                                File.Delete(remoteEnvTemp2);
+                            }
+                            
+                            bool updated = false;
+                            for (int i = 0; i < envLines.Count; i++)
+                            {
+                                if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
+                                {
+                                    string keyName = envLines[i].Split('=')[0].Trim();
+                                    envLines[i] = keyName + "=" + passwordToSet;
+                                    updated = true;
+                                }
+                            }
+                            if (!updated)
+                            {
+                                envLines.Add("DB_PASSWORD=" + passwordToSet);
+                            }
+                            
+                            File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
+                            UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                            File.Delete(remoteEnvTemp2);
+                            AppendLog("✅ Đã cập nhật đồng bộ mật khẩu mới vào file .env trên hosting.", colorGreen);
+
+                            if (!onlyDb)
+                            {
+                                string safeDbName = finalDbName.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                                string safeDbPass = passwordToSet.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                                string safeAppUrl = (scheme + webDomain + "/" + relWebPath).Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+                                string dbConfig = "{\"host\":\"localhost\",\"name\":\"" + safeDbName + "\",\"user\":\"" + safeDbName + "\",\"pass\":\"" + safeDbPass + "\"}";
+                                string appConfig = "{\"app_url\":\"" + safeAppUrl + "\",\"ssl\":" + (useSSL ? "true" : "false") + ",\"skip_lock\":true}";
+                                postData = "db_config=" + Uri.EscapeDataString(dbConfig) + "&app_config=" + Uri.EscapeDataString(appConfig);
+                            }
+
+                            AppendLog("⚡ Đang kích hoạt lại bridge và tiến hành import lại Database...", colorText);
+                            bridgeRes = PostHttp(bridgeUrl, postData);
+                        }
+                        catch (Exception ex)
+                        {
+                            AppendLog("⚠️ Thất bại khi tự động đổi mật khẩu: " + ex.Message, Color.FromArgb(245, 158, 11));
+                        }
+                    }
+
                     if (!string.IsNullOrEmpty(bridgeRes) && bridgeRes.Contains("\"status\":\"success\""))
                     {
                         AppendLog("✅ Bridge hoàn thành!", colorGreen);
@@ -9576,6 +9710,37 @@ $cfg['SendErrorReports']              = 'never';
                 if (proc.ExitCode == 0) return true;
                 
                 cmd = string.Format("-T \"{0}\" --ftp-create-dirs -u \"{1}\" \"{2}\" -m 300 -s", localFile, userPwd, ftpUrl);
+                psi = new ProcessStartInfo(curlPath, cmd);
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                psi.RedirectStandardError = true;
+                psi.RedirectStandardOutput = true;
+                proc = Process.Start(psi);
+                err += proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
+                if (proc.ExitCode == 0) return true;
+                error = err.Trim();
+                return false;
+            } catch (Exception ex) { error = ex.Message; return false; }
+        }
+
+        private bool DownloadFtp(string ftpUrl, string userPwd, string localFile, out string error)
+        {
+            error = "";
+            try {
+                string curlPath = "curl";
+                string cmd = string.Format("-o \"{0}\" -u \"{1}\" \"{2}\" --ssl-reqd --ftp-ssl --insecure -m 30 -s", localFile, userPwd, ftpUrl);
+                var psi = new ProcessStartInfo(curlPath, cmd);
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                psi.RedirectStandardError = true;
+                psi.RedirectStandardOutput = true;
+                var proc = Process.Start(psi);
+                string err = proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
+                if (proc.ExitCode == 0) return true;
+                
+                cmd = string.Format("-o \"{0}\" -u \"{1}\" \"{2}\" -m 30 -s", localFile, userPwd, ftpUrl);
                 psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
