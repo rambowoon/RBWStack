@@ -1,0 +1,12 @@
+# Ignore everything by default
+*
+
+# Allow the data directory specifically (so git can search inside it)
+!data/
+
+# Allow specific files
+!RBWStack.exe
+!LaragonManager.cs
+!app.ico
+!.gitignore
+!data/bridge.php
