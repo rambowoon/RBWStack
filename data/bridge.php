@@ -1,6 +1,8 @@
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+@set_time_limit(600);
+@ini_set('max_execution_time', 600);
 
 register_shutdown_function(function () {
     $error = error_get_last();
@@ -36,6 +38,9 @@ class RamboWoonBridge
                 break;
             case 'deployDb':
                 $this->deployDb();
+                break;
+            case 'checkDb':
+                $this->checkDb();
                 break;
             case 'cleanup':
                 $this->cleanup();
@@ -115,6 +120,23 @@ class RamboWoonBridge
             $results[] = "Backed up existing .env configuration";
         }
 
+        // Clean up any old files with backslashes in their names from previous buggy deploys
+        try {
+            if (class_exists('DirectoryIterator')) {
+                $dir = new DirectoryIterator($baseDir);
+                foreach ($dir as $fileinfo) {
+                    if (!$fileinfo->isDot() && !$fileinfo->isDir()) {
+                        $filename = $fileinfo->getFilename();
+                        if (strpos($filename, '\\') !== false) {
+                            @unlink($baseDir . '/' . $filename);
+                        }
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            // Ignore
+        }
+
         // 1. Unzip - Use System Unzip if possible (Fast & avoids 500)
         if (file_exists($zipFile)) {
             $results[] = "Extracting package (" . filesize($zipFile) . " bytes)...";
@@ -129,7 +151,7 @@ class RamboWoonBridge
                     $results[] = "Package extracted via system unzip.";
                 }
             }
-            
+
             if (!$unzipped) {
                 // Method 2: PHP Fallback
                 if (class_exists('ZipArchive')) {
@@ -146,6 +168,19 @@ class RamboWoonBridge
 
             if ($unzipped) {
                 $isZipSuccess = true;
+
+                // Clear Laravel bootstrap config/routes cache if present
+                $cacheFiles = [
+                    'bootstrap/cache/config.php',
+                    'bootstrap/cache/routes.php',
+                    'bootstrap/cache/events.php'
+                ];
+                foreach ($cacheFiles as $cf) {
+                    if (file_exists($cf)) {
+                        @unlink($cf);
+                        $results[] = "Cleared Laravel cache file: $cf";
+                    }
+                }
             } else {
                 die(json_encode(['status' => 'error', 'message' => 'Lỗi: Không thể giải nén bộ cài (Cả unzip và ZipArchive đều thất bại hoặc treo).', 'logs' => $results]));
             }
@@ -184,6 +219,8 @@ class RamboWoonBridge
             $results[] = "Htaccess configured (SSL: " . ($appConfig['ssl'] ? 'On' : 'Off') . ")";
         }
 
+        $clearDb = isset($_POST['clear_db']) ? (int)$_POST['clear_db'] : 0;
+
         // 3. Import SQL
         if (file_exists($sqlFile)) {
             $sqlSize = filesize($sqlFile);
@@ -197,6 +234,11 @@ class RamboWoonBridge
                     $dbname = $dbConfig['name'] ?? '';
                     $user = $dbConfig['user'] ?? '';
                     $pass = $dbConfig['pass'] ?? '';
+
+                    if ($clearDb) {
+                        $results[] = "Clearing database tables first...";
+                        $this->clearDatabase($dbConfig);
+                    }
 
                     // Auto-replace Demo Domain with Production Domain in SQL file
                     if (!empty($appConfig['demo_domain']) && !empty($appConfig['prod_domain'])) {
@@ -568,11 +610,18 @@ class RamboWoonBridge
         $results[] = "Loaded DB config from server .env (Host=" . ($dbConfig['host'] ?? 'localhost') . ", DB=" . ($dbConfig['name'] ?? 'none') . ")";
         $isSqlSuccess = false;
 
+        $clearDb = isset($_POST['clear_db']) ? (int)$_POST['clear_db'] : 0;
+
         try {
             $host = $dbConfig['host'] ?? 'localhost';
             $dbname = $dbConfig['name'] ?? '';
             $user = $dbConfig['user'] ?? '';
             $pass = $dbConfig['pass'] ?? '';
+
+            if ($clearDb) {
+                $results[] = "Clearing database tables first...";
+                $this->clearDatabase($dbConfig);
+            }
 
             if (function_exists('exec')) {
                 $outM = $resM = null;
@@ -612,6 +661,78 @@ class RamboWoonBridge
             echo json_encode(['status' => 'error', 'message' => 'Không thể import database.', 'logs' => $results]);
         }
         exit;
+    }
+
+    public function checkDb()
+    {
+        header('Content-Type: application/json');
+
+        $dbRaw = $_POST['db_config'] ?? null;
+        if (!$dbRaw) {
+            $rawInput = file_get_contents('php://input');
+            if (!empty($rawInput)) {
+                parse_str($rawInput, $inputData);
+                $dbRaw = $inputData['db_config'] ?? null;
+            }
+        }
+
+        $dbConfig = json_decode($dbRaw ?? '', true);
+        if (empty($dbConfig) || empty($dbConfig['name'])) {
+            $dbConfig = $this->getDbConfigFromEnv();
+        }
+
+        if (empty($dbConfig) || empty($dbConfig['name'])) {
+            die(json_encode(['status' => 'error', 'message' => 'No database configuration found']));
+        }
+
+        try {
+            $pdo = $this->getPdoConnection($dbConfig);
+            $stmt = $pdo->query("SHOW TABLES");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            $hasData = count($tables) > 0;
+            echo json_encode(['status' => 'success', 'has_data' => $hasData]);
+        } catch (\Exception $e) {
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    private function clearDatabase($dbConfig)
+    {
+        try {
+            $pdo = $this->getPdoConnection($dbConfig);
+            $pdo->exec("SET FOREIGN_KEY_CHECKS=0;");
+
+            // Get all tables
+            $stmt = $pdo->query("SHOW TABLES");
+            $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            foreach ($tables as $table) {
+                $pdo->exec("DROP TABLE IF EXISTS `{$table}`");
+            }
+
+            $pdo->exec("SET FOREIGN_KEY_CHECKS=1;");
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    private function clearFolderContent($dir)
+    {
+        if (!is_dir($dir)) return;
+        foreach (scandir($dir) as $item) {
+            if ($item == '.' || $item == '..') continue;
+            $path = $dir . DIRECTORY_SEPARATOR . $item;
+            if (is_dir($path)) {
+                $this->clearFolderContent($path);
+                @rmdir($path);
+            } else {
+                if ($item !== '.gitignore') {
+                    @unlink($path);
+                }
+            }
+        }
     }
 
     public function cleanup()

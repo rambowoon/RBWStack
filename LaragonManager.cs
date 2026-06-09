@@ -320,7 +320,7 @@ namespace RBWStack
 
             if (!Enabled)
             {
-                currentBg = Color.FromArgb(249, 250, 251);
+                currentBg = Color.FromArgb(226, 232, 240);
             }
 
             // Fill rounded background
@@ -332,9 +332,10 @@ namespace RBWStack
                 }
 
                 // Draw border outline
-                if (_borderColor != Color.Transparent && _borderColor.A > 0 && Enabled)
+                if (_borderColor != Color.Transparent && _borderColor.A > 0)
                 {
-                    using (Pen pen = new Pen(_borderColor, 1.0f))
+                    Color bc = Enabled ? _borderColor : Color.FromArgb(203, 213, 225);
+                    using (Pen pen = new Pen(bc, 1.0f))
                     {
                         pen.Alignment = System.Drawing.Drawing2D.PenAlignment.Inset;
                         g.DrawPath(pen, path);
@@ -8598,7 +8599,7 @@ $cfg['SendErrorReports']              = 'never';
                     btnDeploy.CornerRadius = 4;
                     btnDeploy.Size = new Size(32, 28);
                     btnDeploy.Location = new Point(btnDeployX, 10);
-                    toolTip.SetToolTip(btnDeploy, alreadyDeployed ? "Đã deploy - click để mở khóa deploy lại" : "Deploy Demo lên hosting");
+                    toolTip.SetToolTip(btnDeploy, alreadyDeployed ? "Đã deploy - click để mở popup cấu hình/khóa" : "Deploy Demo lên hosting");
 
                     if (alreadyDeployed)
                     {
@@ -8607,17 +8608,6 @@ $cfg['SendErrorReports']              = 'never';
                         btnDeploy.HoverColor = Color.FromArgb(220, 252, 231);
                         btnDeploy.BorderColor = Color.FromArgb(74, 222, 128);
                         btnDeploy.ForeColor = Color.FromArgb(21, 128, 61);
-                        btnDeploy.Click += (s, e) => {
-                            var res = MessageBox.Show(
-                                "Dự án này đã được deploy lên demo hosting.\n\nBạn có muốn mở khóa để deploy lại không?",
-                                "Xác nhận mở khóa",
-                                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                            if (res == DialogResult.Yes)
-                            {
-                                DeployDemoForm.SetDeployed(captureDir2, false);
-                                RenderSitesList(); // refresh card to turn back to ⚡ button!
-                            }
-                        };
                     }
                     else
                     {
@@ -8626,12 +8616,12 @@ $cfg['SendErrorReports']              = 'never';
                         btnDeploy.HoverColor = Color.FromArgb(245, 243, 255);
                         btnDeploy.BorderColor = colorBorder;
                         btnDeploy.ForeColor = Color.FromArgb(139, 92, 246);
-                        btnDeploy.Click += (s, e) => {
-                            var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
-                            deployForm.ShowDialog(this);
-                            RenderSitesList(); // refresh card after deploy
-                        };
                     }
+                    btnDeploy.Click += (s, e) => {
+                        var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
+                        deployForm.ShowDialog(this);
+                        RenderSitesList(); // refresh card after deploy
+                    };
                     pnlCard.Controls.Add(btnDeploy);
 
                     currentY += 56;
@@ -8671,6 +8661,10 @@ $cfg['SendErrorReports']              = 'never';
         private TextBox _txtDbName;
         private bool _onlyDbChecked = false;
         private bool _use7zipChecked = false;
+        private bool _isLocked = false;
+        private ModernButton _btnLockToggle;
+        private ModernButton _btnOpenWeb;
+        private string _deployedUrl = "";
 
         // Hidden backing fields for FTP/DA config (loaded from global settings)
         private TextBox _txtFtpHost, _txtFtpUser, _txtFtpPass, _txtFtpRoot, _txtDaUser, _txtDaPort, _txtWebDomain;
@@ -8711,6 +8705,7 @@ $cfg['SendErrorReports']              = 'never';
         {
             _projectDir = projectDir;
             _sitePath = sitePath;
+            _isLocked = IsDeployed(_projectDir);
 
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterParent;
@@ -8807,7 +8802,7 @@ $cfg['SendErrorReports']              = 'never';
             _lblApiStatus.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
             _lblApiStatus.ForeColor = colorDim;
             _lblApiStatus.Location = new Point(15, 425);
-            _lblApiStatus.Size = new Size(300, 25);
+            _lblApiStatus.Size = new Size(175, 25);
             _lblApiStatus.TextAlign = ContentAlignment.MiddleLeft;
             this.Controls.Add(_lblApiStatus);
 
@@ -8820,10 +8815,48 @@ $cfg['SendErrorReports']              = 'never';
             _btnDeploy.BorderColor = Color.Transparent;
             _btnDeploy.ForeColor = Color.White;
             _btnDeploy.CornerRadius = 6;
-            _btnDeploy.Location = new Point(325, 422);
+            _btnDeploy.Location = new Point(195, 422);
             _btnDeploy.Size = new Size(125, 32);
             _btnDeploy.Click += (s, e) => StartDeploy(_onlyDbChecked);
             this.Controls.Add(_btnDeploy);
+
+            _btnLockToggle = new ModernButton();
+            _btnLockToggle.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnLockToggle.CornerRadius = 6;
+            _btnLockToggle.Location = new Point(328, 422);
+            _btnLockToggle.Size = new Size(125, 32);
+            _btnLockToggle.Click += (s, e) =>
+            {
+                _isLocked = !_isLocked;
+                SetDeployed(_projectDir, _isLocked);
+                if (!_isLocked)
+                {
+                    if (_btnOpenWeb != null) _btnOpenWeb.Visible = false;
+                    _btnDeploy.Visible = true;
+                }
+                UpdateDeployButtonsState();
+            };
+            this.Controls.Add(_btnLockToggle);
+
+            _btnOpenWeb = new ModernButton();
+            _btnOpenWeb.Text = "🌐 Vào Web";
+            _btnOpenWeb.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnOpenWeb.NormalColor = colorGreen;
+            _btnOpenWeb.HoverColor = Color.FromArgb(52, 211, 153);
+            _btnOpenWeb.PressedColor = Color.FromArgb(5, 150, 105);
+            _btnOpenWeb.BorderColor = Color.Transparent;
+            _btnOpenWeb.ForeColor = Color.White;
+            _btnOpenWeb.CornerRadius = 6;
+            _btnOpenWeb.Location = new Point(195, 422);
+            _btnOpenWeb.Size = new Size(125, 32);
+            _btnOpenWeb.Visible = false;
+            _btnOpenWeb.Click += (s, e) => {
+                if (!string.IsNullOrEmpty(_deployedUrl))
+                {
+                    try { System.Diagnostics.Process.Start(_deployedUrl); } catch { }
+                }
+            };
+            this.Controls.Add(_btnOpenWeb);
 
             _btnDeployFresh = new ModernButton();
             _btnDeployFresh.Text = "Chỉ Database";
@@ -8854,6 +8887,7 @@ $cfg['SendErrorReports']              = 'never';
             this.Controls.Add(_btnCleanup);
 
             LoadConfig();
+            UpdateDeployButtonsState();
         }
 
         private void BuildConfigPanel()
@@ -9037,6 +9071,60 @@ $cfg['SendErrorReports']              = 'never';
             _pnlConfig.Controls.Add(lblHint);
         }
 
+        private void UpdateDeployButtonsState()
+        {
+            if (_isLocked)
+            {
+                _btnDeploy.Enabled = false;
+                _btnDeployFresh.Enabled = false;
+                _lblApiStatus.Text = "Dự án đã khóa deploy";
+                _lblApiStatus.ForeColor = colorRed;
+
+                if (_btnLockToggle != null)
+                {
+                    _btnLockToggle.Text = "🔓 Mở khóa";
+                    _btnLockToggle.NormalColor = Color.White;
+                    _btnLockToggle.HoverColor = Color.FromArgb(240, 253, 244);
+                    _btnLockToggle.PressedColor = Color.FromArgb(220, 252, 231);
+                    _btnLockToggle.BorderColor = colorGreen;
+                    _btnLockToggle.ForeColor = colorGreen;
+                }
+
+                if (_btnOpenWeb != null)
+                {
+                    string scheme = _chkSsl.Checked ? "https://" : "http://";
+                    string relWebPath = _sitePath.Replace('\\', '/').TrimStart('/');
+                    _deployedUrl = scheme + _txtWebDomain.Text.Trim() + "/" + relWebPath + "/";
+                    _btnOpenWeb.Visible = true;
+                    _btnDeploy.Visible = false;
+                }
+            }
+            else
+            {
+                _btnDeploy.Enabled = true;
+                _btnDeployFresh.Enabled = true;
+                _lblApiStatus.Text = "Sẵn sàng deploy";
+                _lblApiStatus.ForeColor = colorDim;
+
+                if (_btnLockToggle != null)
+                {
+                    _btnLockToggle.Text = "🔒 Khóa";
+                    _btnLockToggle.NormalColor = Color.White;
+                    _btnLockToggle.HoverColor = Color.FromArgb(254, 242, 242);
+                    _btnLockToggle.PressedColor = Color.FromArgb(254, 226, 226);
+                    _btnLockToggle.BorderColor = Color.FromArgb(248, 113, 113);
+                    _btnLockToggle.ForeColor = Color.FromArgb(239, 68, 68);
+                }
+
+                if (_btnOpenWeb != null)
+                {
+                    _btnOpenWeb.Visible = false;
+                    _btnDeploy.Visible = true;
+                }
+            }
+            if (_btnLockToggle != null) _btnLockToggle.Invalidate();
+        }
+
         private void LoadConfig()
         {
             var cfg = LoadGlobalConfig();
@@ -9119,6 +9207,11 @@ $cfg['SendErrorReports']              = 'never';
             _btnDeploy.Enabled = false;
             _btnDeployFresh.Enabled = false;
             _btnCleanup.Enabled = false;
+            if (_btnOpenWeb != null)
+            {
+                _btnOpenWeb.Visible = false;
+                _btnDeploy.Visible = true;
+            }
             _lblApiStatus.Text = "Đang xử lý...";
             _lblApiStatus.ForeColor = Color.FromArgb(245, 158, 11);
 
@@ -9279,34 +9372,10 @@ $cfg['SendErrorReports']              = 'never';
                             AppendLog("✅ Export SQL thành công: " + Math.Round(new FileInfo(sqlPath).Length / 1024.0, 1) + " KB", colorGreen);
                     }
 
-                    // Step 3: Upload via curl FTP
-                    AppendLog("☁️ Đang upload lên FTP...", colorText);
+                    // Step 3: Define FTP parameters and upload bridge.php early for DB check
                     string ftpBase = "ftp://" + ftpHost + "/" + ftpRoot.TrimStart('/') + "/" + sitePath.Replace('\\', '/').TrimStart('/') + "/";
                     string ftpCreds = ftpUser + ":" + ftpPass;
 
-                    bool uploadOk = true;
-                    if (!onlyDb && File.Exists(zipPath))
-                    {
-                        AppendLog("  ↑ Uploading dist.zip...", colorDim);
-                        string uploadErrZip;
-                        if (!UploadFtp(ftpBase + "dist.zip", ftpCreds, zipPath, out uploadErrZip))
-                        {
-                            AppendLog("❌ Upload zip thất bại: " + uploadErrZip, colorRed);
-                            uploadOk = false;
-                        }
-                    }
-
-                    if (File.Exists(sqlPath))
-                    {
-                        AppendLog("  ↑ Uploading dist.sql...", colorDim);
-                        string uploadErrSql;
-                        if (!UploadFtp(ftpBase + "dist.sql", ftpCreds, sqlPath, out uploadErrSql))
-                        {
-                            AppendLog("⚠️ Upload SQL thất bại: " + uploadErrSql, Color.FromArgb(245, 158, 11));
-                        }
-                    }
-
-                    // Upload bridge.php
                     string bridgePath = ConfigHelper.GetDataFilePath("bridge.php");
                     if (File.Exists(bridgePath))
                     {
@@ -9324,71 +9393,291 @@ $cfg['SendErrorReports']              = 'never';
                     if (!File.Exists(bridgePath)) bridgePath = Path.Combine(baseAppDir, "bridge.php");
                     if (File.Exists(bridgePath))
                     {
-                        AppendLog("  ↑ Uploading bridge.php...", colorDim);
+                        AppendLog("  ↑ Uploading bridge.php for database checks...", colorDim);
                         string _ignoredBridgeErr;
                         UploadFtp(ftpBase + "bridge.php", ftpCreds, bridgePath, out _ignoredBridgeErr);
+                    }
+
+                    string finalDbName = "";
+                    string finalDbPass = "";
+                    bool clearDb = false;
+                    bool skipImportDb = false;
+
+                    string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                    string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
+                    finalDbName = mainUser + "_" + dbSuffix;
+
+                    // Download remote .env to read current password
+                    string envDbName = "";
+                    string envDbUser = "";
+                    string envDbPass = "";
+                    string remoteEnvTemp = Path.Combine(tempDir, "remote_env_check_" + jobId);
+                    string remoteEnvUrl = ftpBase + ".env";
+                    string ftpErrCheck;
+                    bool hasRemoteEnv = DownloadFtp(remoteEnvUrl, ftpCreds, remoteEnvTemp, out ftpErrCheck);
+                    if (hasRemoteEnv && File.Exists(remoteEnvTemp))
+                    {
+                        foreach (string line in File.ReadAllLines(remoteEnvTemp))
+                        {
+                            string trimmed = line.Trim();
+                            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
+                            int idx = trimmed.IndexOf('=');
+                            if (idx <= 0) continue;
+                            string key = trimmed.Substring(0, idx).Trim().ToUpper();
+                            string val = trimmed.Substring(idx + 1).Trim().Trim('"', '\'');
+                            if (key == "DB_DATABASE" || key == "DB_NAME") envDbName = val;
+                            else if (key == "DB_USERNAME" || key == "DB_USER") envDbUser = val;
+                            else if (key == "DB_PASSWORD" || key == "DB_PASS") envDbPass = val;
+                        }
+                        File.Delete(remoteEnvTemp);
+                    }
+
+                    string targetDbName = !string.IsNullOrEmpty(envDbName) ? envDbName : finalDbName;
+                    string targetDbUser = !string.IsNullOrEmpty(envDbUser) ? envDbUser : finalDbName;
+                    string targetDbPass = !string.IsNullOrEmpty(envDbPass) ? envDbPass : "";
+
+                    bool dbCheckSuccess = false;
+                    bool dbHasData = false;
+                    string scheme = useSSL ? "https://" : "http://";
+                    string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
+                    string checkDbUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=checkDb";
+
+                    if (!string.IsNullOrEmpty(targetDbPass))
+                    {
+                        AppendLog("🔍 Đang kiểm tra kết nối Database...", colorText);
+                        string checkDbConfig = "{\"host\":\"localhost\",\"name\":\"" + targetDbName.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
+                                               "\",\"user\":\"" + targetDbUser.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
+                                               "\",\"pass\":\"" + targetDbPass.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
+                        string checkPostData = "db_config=" + Uri.EscapeDataString(checkDbConfig);
+                        string checkRes = PostHttp(checkDbUrl, checkPostData);
+                        
+                        if (!string.IsNullOrEmpty(checkRes) && checkRes.Contains("\"status\":\"success\""))
+                        {
+                            dbCheckSuccess = true;
+                            dbHasData = checkRes.Contains("\"has_data\":true");
+                            finalDbPass = targetDbPass;
+                            AppendLog("✅ Kết nối Database thành công.", colorGreen);
+                        }
+                        else
+                        {
+                            AppendLog("⚠️ Kết nối Database thất bại: " + (checkRes ?? "không phản hồi"), Color.FromArgb(245, 158, 11));
+                        }
+                    }
+
+                    if (!dbCheckSuccess)
+                    {
+                        // Wrong password or env doesn't have it
+                        AppendLog("🔑 Cấu hình sai mật khẩu hoặc chưa có Database. Tiến hành tự động đồng bộ lại mật khẩu...", Color.FromArgb(245, 158, 11));
+                        
+                        string passwordToSet = "";
+                        if (!string.IsNullOrEmpty(envDbPass))
+                        {
+                            passwordToSet = envDbPass;
+                            AppendLog("👉 Lấy mật khẩu cũ từ file .env: " + passwordToSet, colorDim);
+                        }
+                        else
+                        {
+                            passwordToSet = GenerateRandomDbPass();
+                            AppendLog("👉 File .env không có mật khẩu, tự random mật khẩu mới: " + passwordToSet, colorDim);
+                        }
+
+                        // Create database / sync password via DirectAdmin API
+                        if (!onlyDb)
+                        {
+                            AppendLog("🛠️ Đang khởi tạo/đồng bộ Database trên DirectAdmin...", colorText);
+                            string dbPostData = "action=create&name=" + Uri.EscapeDataString(dbSuffix) + 
+                                               "&user=" + Uri.EscapeDataString(dbSuffix) + 
+                                               "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
+                                               "&passwd2=" + Uri.EscapeDataString(passwordToSet) + 
+                                               "&create=Create";
+                            
+                            AppendLog("  DA API: Gửi yêu cầu tạo database " + finalDbName + "...", colorDim);
+                            string daRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbPostData);
+                            string decodedDaRes = Uri.UnescapeDataString(daRes);
+                            bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                                                    decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                            if (isAlreadyExists)
+                            {
+                                AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
+                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
+                                                         "&user=" + Uri.EscapeDataString(targetDbUser) + 
+                                                         "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
+                                                         "&passwd2=" + Uri.EscapeDataString(passwordToSet);
+                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
+                                string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
+                                if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
+                                {
+                                    AppendLog("❌ DA API Lỗi đồng bộ password: " + decodedDaPassRes, colorRed);
+                                }
+                                else
+                                {
+                                    AppendLog("✅ DA API: Đồng bộ password thành công.", colorGreen);
+                                }
+                            }
+                            else if (decodedDaRes.IndexOf("error=1", StringComparison.OrdinalIgnoreCase) >= 0 && decodedDaRes.IndexOf("exists", StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                AppendLog("⚠️ DA API Cảnh báo: " + decodedDaRes, Color.FromArgb(245, 158, 11));
+                            }
+                            else
+                            {
+                                AppendLog("✅ DA API: Tạo Database thành công.", colorGreen);
+                            }
+                        }
+                        else
+                        {
+                            // onlyDb is true, but password is wrong: sync password only
+                            if (string.IsNullOrEmpty(targetDbUser) || targetDbUser == "root")
+                            {
+                                AppendLog("⚠️ User database là 'root' hoặc trống (không hợp lệ trên hosting). Bỏ qua đổi mật khẩu qua DirectAdmin API.", Color.FromArgb(245, 158, 11));
+                            }
+                            else
+                            {
+                                AppendLog("  DA API: Đang đổi mật khẩu của user \"" + targetDbUser + "\" thành mật khẩu đồng bộ...", colorDim);
+                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
+                                                         "&user=" + Uri.EscapeDataString(targetDbUser) + 
+                                                         "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
+                                                         "&passwd2=" + Uri.EscapeDataString(passwordToSet);
+                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
+                                string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
+                                if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
+                                {
+                                    AppendLog("❌ DA API Lỗi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
+                                }
+                                else
+                                {
+                                    AppendLog("✅ DA API: Đổi mật khẩu Database thành công.", colorGreen);
+                                }
+                            }
+                        }
+
+                        finalDbPass = passwordToSet;
+
+                        // Sync back to .env if env password is missing or different
+                        if (string.IsNullOrEmpty(envDbPass) || envDbPass != passwordToSet)
+                        {
+                            try
+                            {
+                                string remoteEnvTemp2 = Path.Combine(tempDir, "remote_env_write_" + jobId);
+                                string remoteEnvUrl2 = ftpBase + ".env";
+                                string ftpErr2;
+                                List<string> envLines = new List<string>();
+                                if (DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2) && File.Exists(remoteEnvTemp2))
+                                {
+                                    envLines.AddRange(File.ReadAllLines(remoteEnvTemp2));
+                                    File.Delete(remoteEnvTemp2);
+                                }
+                                
+                                bool updated = false;
+                                for (int i = 0; i < envLines.Count; i++)
+                                {
+                                    if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
+                                    {
+                                        string keyName = envLines[i].Split('=')[0].Trim();
+                                        envLines[i] = keyName + "=" + passwordToSet;
+                                        updated = true;
+                                    }
+                                }
+                                if (!updated)
+                                {
+                                    envLines.Add("DB_PASSWORD=" + passwordToSet);
+                                }
+                                
+                                File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
+                                UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                                File.Delete(remoteEnvTemp2);
+                                AppendLog("✅ Đã cập nhật mật khẩu mới vào file .env trên hosting.", colorGreen);
+                            }
+                            catch (Exception ex)
+                            {
+                                AppendLog("⚠️ Thất bại khi cập nhật file .env: " + ex.Message, Color.FromArgb(245, 158, 11));
+                            }
+                        }
+
+                        // Check connection again after sync
+                        AppendLog("🔍 Đang kiểm tra lại kết nối Database...", colorText);
+                        string checkDbConfig2 = "{\"host\":\"localhost\",\"name\":\"" + targetDbName.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
+                                               "\",\"user\":\"" + targetDbUser.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
+                                               "\",\"pass\":\"" + finalDbPass.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
+                        string checkPostData2 = "db_config=" + Uri.EscapeDataString(checkDbConfig2);
+                        string checkRes2 = PostHttp(checkDbUrl, checkPostData2);
+                        if (!string.IsNullOrEmpty(checkRes2) && checkRes2.Contains("\"status\":\"success\""))
+                        {
+                            dbHasData = checkRes2.Contains("\"has_data\":true");
+                            AppendLog("✅ Kết nối Database thành công sau khi đồng bộ mật khẩu.", colorGreen);
+                        }
+                    }
+
+                    // Check if DB already has data and prompt user
+                    if (dbHasData)
+                    {
+                        DialogResult dialogRes = DialogResult.Cancel;
+                        this.Invoke((MethodInvoker)delegate {
+                            dialogRes = MessageBox.Show(
+                                "Database " + finalDbName + " đã có dữ liệu!\n\n- Chọn YES để: Xoá dữ liệu cũ và tiến hành import DB mới.\n- Chọn NO để: Giữ lại dữ liệu cũ (Không import DB) và tiếp tục các bước tiếp theo.\n- Chọn CANCEL để: Hủy bỏ tiến trình deploy.",
+                                "Database đã có dữ liệu",
+                                MessageBoxButtons.YesNoCancel,
+                                MessageBoxIcon.Question
+                            );
+                        });
+
+                        if (dialogRes == DialogResult.Yes)
+                        {
+                            clearDb = true;
+                            AppendLog("👉 Người dùng chọn: Xóa dữ liệu cũ và import database mới.", colorText);
+                        }
+                        else if (dialogRes == DialogResult.No)
+                        {
+                            skipImportDb = true;
+                            AppendLog("👉 Người dùng chọn: Giữ lại dữ liệu cũ (KHÔNG import DB).", colorText);
+                            if (File.Exists(sqlPath))
+                            {
+                                try { File.Delete(sqlPath); } catch { }
+                            }
+                        }
+                        else
+                        {
+                            AppendLog("❌ Tiến trình deploy đã bị hủy bởi người dùng.", colorRed);
+                            FinishDeploy(false);
+                            return;
+                        }
+                    }
+
+                    // Upload actual distribution package files
+                    AppendLog("☁️ Đang upload tệp tin nguồn lên FTP...", colorText);
+                    bool uploadOk = true;
+                    if (!onlyDb && File.Exists(zipPath))
+                    {
+                        AppendLog("  ↑ Uploading dist.zip...", colorDim);
+                        string uploadErrZip;
+                        if (!UploadFtp(ftpBase + "dist.zip", ftpCreds, zipPath, out uploadErrZip))
+                        {
+                            AppendLog("❌ Upload zip thất bại: " + uploadErrZip, colorRed);
+                            uploadOk = false;
+                        }
+                    }
+
+                    if (!skipImportDb && File.Exists(sqlPath))
+                    {
+                        AppendLog("  ↑ Uploading dist.sql...", colorDim);
+                        string uploadErrSql;
+                        if (!UploadFtp(ftpBase + "dist.sql", ftpCreds, sqlPath, out uploadErrSql))
+                        {
+                            AppendLog("⚠️ Upload SQL thất bại: " + uploadErrSql, Color.FromArgb(245, 158, 11));
+                        }
                     }
 
                     if (!uploadOk) { FinishDeploy(false); return; }
                     AppendLog("✅ Upload hoàn tất.", colorGreen);
 
-                    string finalDbName = "";
-                    string finalDbPass = "";
-
-                    if (!onlyDb)
-                    {
-                        // Step 3.5: Create Database via DirectAdmin API
-                        AppendLog("🛠️ Đang khởi tạo Database trên DirectAdmin...", colorText);
-                        string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
-                        string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
-                        finalDbName = mainUser + "_" + dbSuffix;
-                        finalDbPass = GenerateRandomDbPass(); // Generate random letter-only password
-
-                        string dbPostData = "action=create&name=" + Uri.EscapeDataString(dbSuffix) + 
-                                           "&user=" + Uri.EscapeDataString(dbSuffix) + 
-                                           "&passwd=" + Uri.EscapeDataString(finalDbPass) + 
-                                           "&passwd2=" + Uri.EscapeDataString(finalDbPass) + 
-                                           "&create=Create";
-                        
-                        AppendLog("  DA API: Gửi yêu cầu tạo database " + finalDbName + "...", colorDim);
-                        string daRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbPostData);
-                        string decodedDaRes = Uri.UnescapeDataString(daRes);
-                        bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
-                                                decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0;
-
-                        if (isAlreadyExists)
-                        {
-                            AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
-                            string dbModifyPostData = "action=passwd&db=" + Uri.EscapeDataString(finalDbName) + 
-                                                     "&user=" + Uri.EscapeDataString(finalDbName) + 
-                                                     "&passwd=" + Uri.EscapeDataString(finalDbPass) + 
-                                                     "&passwd2=" + Uri.EscapeDataString(finalDbPass);
-                            CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData);
-                            AppendLog("✅ DA API: Đồng bộ password thành công.", colorGreen);
-                        }
-                        else if (decodedDaRes.IndexOf("error=1", StringComparison.OrdinalIgnoreCase) >= 0 && decodedDaRes.IndexOf("exists", StringComparison.OrdinalIgnoreCase) < 0)
-                        {
-                            AppendLog("⚠️ DA API Cảnh báo: " + decodedDaRes, Color.FromArgb(245, 158, 11));
-                        }
-                        else
-                        {
-                            AppendLog("✅ DA API: Tạo Database thành công.", colorGreen);
-                        }
-                    }
-                    else
-                    {
-                        AppendLog("♻️ Chỉ cập nhật database: Bỏ qua bước tạo DB DirectAdmin.", colorDim);
-                    }
-
-                    // Step 4: Trigger bridge
-                    string scheme = useSSL ? "https://" : "http://";
-                    string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
+                    // Step 4: Trigger bridge to deploy/deployDb
                     string bridgeUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=" + (onlyDb ? "deployDb" : "deploy");
                     string postData = "";
 
                     if (onlyDb)
                     {
                         AppendLog("⚡ Đang kích hoạt bridge để tự đọc .env và cập nhật database...", colorText);
+                        postData = "clear_db=" + (clearDb ? "1" : "0");
                     }
                     else
                     {
@@ -9399,134 +9688,12 @@ $cfg['SendErrorReports']              = 'never';
 
                         string dbConfig = "{\"host\":\"localhost\",\"name\":\"" + safeDbName + "\",\"user\":\"" + safeDbName + "\",\"pass\":\"" + safeDbPass + "\"}";
                         string appConfig = "{\"app_url\":\"" + safeAppUrl + "\",\"ssl\":" + (useSSL ? "true" : "false") + ",\"skip_lock\":true}";
-                        postData = "db_config=" + Uri.EscapeDataString(dbConfig) + "&app_config=" + Uri.EscapeDataString(appConfig);
+                        postData = "db_config=" + Uri.EscapeDataString(dbConfig) + 
+                                   "&app_config=" + Uri.EscapeDataString(appConfig) + 
+                                   "&clear_db=" + (clearDb ? "1" : "0");
                     }
 
-                    AppendLog("  Bridge URL: " + bridgeUrl, colorDim);
                     string bridgeRes = PostHttp(bridgeUrl, postData);
-
-                    // Auto-detect password error and retry
-                    if (!string.IsNullOrEmpty(bridgeRes) && 
-                        (bridgeRes.Contains("Access denied") || 
-                         bridgeRes.Contains("using password") || 
-                         bridgeRes.Contains("1045") ||
-                         bridgeRes.Contains("PDO Error") ||
-                         bridgeRes.Contains("sai mật khẩu")))
-                    {
-                        AppendLog("🔑 Phát hiện lỗi sai mật khẩu Database. Tiến hành tự động đồng bộ lại mật khẩu...", Color.FromArgb(245, 158, 11));
-                        try
-                        {
-                            if (string.IsNullOrEmpty(finalDbName))
-                            {
-                                string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
-                                string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
-                                finalDbName = mainUser + "_" + dbSuffix;
-                            }
-
-                            string passwordToSet = "";
-                            if (!string.IsNullOrEmpty(dbPass) && dbPass != "root" && dbPass != "123456" && dbPass != "12345678")
-                            {
-                                passwordToSet = dbPass;
-                            }
-                            else
-                            {
-                                // Download remote .env to read current password
-                                string remoteEnvTemp = Path.Combine(tempDir, "remote_env_" + jobId);
-                                string remoteEnvUrl = ftpBase + ".env";
-                                string ftpErr;
-                                if (DownloadFtp(remoteEnvUrl, ftpCreds, remoteEnvTemp, out ftpErr))
-                                {
-                                    if (File.Exists(remoteEnvTemp))
-                                    {
-                                        foreach (string line in File.ReadAllLines(remoteEnvTemp))
-                                        {
-                                            string trimmed = line.Trim();
-                                            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
-                                            int idx = trimmed.IndexOf('=');
-                                            if (idx <= 0) continue;
-                                            string key = trimmed.Substring(0, idx).Trim().ToUpper();
-                                            string val = trimmed.Substring(idx + 1).Trim().Trim('"', '\'');
-                                            if (key == "DB_PASSWORD" || key == "DB_PASS")
-                                            {
-                                                passwordToSet = val;
-                                                break;
-                                            }
-                                        }
-                                        File.Delete(remoteEnvTemp);
-                                    }
-                                }
-                            }
-
-                            if (string.IsNullOrEmpty(passwordToSet))
-                            {
-                                passwordToSet = finalDbPass;
-                            }
-                            if (string.IsNullOrEmpty(passwordToSet))
-                            {
-                                passwordToSet = GenerateRandomDbPass();
-                            }
-
-                            AppendLog("  DA API: Đang đổi mật khẩu của user \"" + finalDbName + "\" thành \"" + passwordToSet + "\"...", colorDim);
-                            string mainUserDA = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
-                            string dbModifyPostData = "action=passwd&db=" + Uri.EscapeDataString(finalDbName) + 
-                                                     "&user=" + Uri.EscapeDataString(finalDbName) + 
-                                                     "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
-                                                     "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                            CallDirectAdminDbApi(ftpHost, daPort, mainUserDA, ftpPass, dbModifyPostData);
-                            AppendLog("✅ DA API: Đổi mật khẩu Database thành công.", colorGreen);
-
-                            // Update remote .env via FTP
-                            string remoteEnvTemp2 = Path.Combine(tempDir, "remote_env_" + jobId);
-                            string remoteEnvUrl2 = ftpBase + ".env";
-                            string ftpErr2;
-                            DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
-                            
-                            List<string> envLines = new List<string>();
-                            if (File.Exists(remoteEnvTemp2))
-                            {
-                                envLines.AddRange(File.ReadAllLines(remoteEnvTemp2));
-                                File.Delete(remoteEnvTemp2);
-                            }
-                            
-                            bool updated = false;
-                            for (int i = 0; i < envLines.Count; i++)
-                            {
-                                if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
-                                {
-                                    string keyName = envLines[i].Split('=')[0].Trim();
-                                    envLines[i] = keyName + "=" + passwordToSet;
-                                    updated = true;
-                                }
-                            }
-                            if (!updated)
-                            {
-                                envLines.Add("DB_PASSWORD=" + passwordToSet);
-                            }
-                            
-                            File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
-                            UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
-                            File.Delete(remoteEnvTemp2);
-                            AppendLog("✅ Đã cập nhật đồng bộ mật khẩu mới vào file .env trên hosting.", colorGreen);
-
-                            if (!onlyDb)
-                            {
-                                string safeDbName = finalDbName.Replace("\\", "\\\\").Replace("\"", "\\\"");
-                                string safeDbPass = passwordToSet.Replace("\\", "\\\\").Replace("\"", "\\\"");
-                                string safeAppUrl = (scheme + webDomain + "/" + relWebPath).Replace("\\", "\\\\").Replace("\"", "\\\"");
-
-                                string dbConfig = "{\"host\":\"localhost\",\"name\":\"" + safeDbName + "\",\"user\":\"" + safeDbName + "\",\"pass\":\"" + safeDbPass + "\"}";
-                                string appConfig = "{\"app_url\":\"" + safeAppUrl + "\",\"ssl\":" + (useSSL ? "true" : "false") + ",\"skip_lock\":true}";
-                                postData = "db_config=" + Uri.EscapeDataString(dbConfig) + "&app_config=" + Uri.EscapeDataString(appConfig);
-                            }
-
-                            AppendLog("⚡ Đang kích hoạt lại bridge và tiến hành import lại Database...", colorText);
-                            bridgeRes = PostHttp(bridgeUrl, postData);
-                        }
-                        catch (Exception ex)
-                        {
-                            AppendLog("⚠️ Thất bại khi tự động đổi mật khẩu: " + ex.Message, Color.FromArgb(245, 158, 11));
-                        }
-                    }
 
                     if (!string.IsNullOrEmpty(bridgeRes) && bridgeRes.Contains("\"status\":\"success\""))
                     {
@@ -9545,8 +9712,8 @@ $cfg['SendErrorReports']              = 'never';
                             AppendLog("⚠️ Cảnh báo tự dọn dẹp: " + (cleanupRes ?? "(không phản hồi)"), Color.FromArgb(245, 158, 11));
                         }
 
+                        _deployedUrl = scheme + webDomain + "/" + relWebPath + "/";
                         AppendLog(onlyDb ? "🎉 Cập nhật database thành công!" : "🎉 Deploy Demo thành công!", colorPurple);
-                        AppendLog("🔗 Demo URL: " + scheme + webDomain + "/" + relWebPath + "/", colorGreen);
                         FinishDeploy(true);
                     }
                     else
@@ -9604,13 +9771,11 @@ $cfg['SendErrorReports']              = 'never';
                     string scheme = useSSL ? "https://" : "http://";
                     string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
                     string cleanupUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=cleanup";
-                    
-                    AppendLog("  Gửi yêu cầu tự hủy tới: " + cleanupUrl, colorDim);
                     string res = PostHttp(cleanupUrl, "");
                     
-                    if (!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\""))
+                    if ((!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\"")) || (res != null && res.Contains("404")))
                     {
-                        AppendLog("✅ Dọn dẹp thành công! Đã xóa dist.zip, dist.sql và tự hủy bridge.php.", colorGreen);
+                        AppendLog("✅ Dọn dẹp thành công! File bridge.php đã tự hủy hoặc không tồn tại trên hosting.", colorGreen);
                         this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate {
                             _lblApiStatus.Text = "Dọn dẹp thành công!";
                             _lblApiStatus.ForeColor = colorGreen;
@@ -9678,19 +9843,33 @@ $cfg['SendErrorReports']              = 'never';
                 this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate { FinishDeploy(success); });
                 return;
             }
-            _btnDeploy.Enabled = true;
-            _btnDeployFresh.Enabled = true;
             _btnCleanup.Enabled = true;
             if (success)
             {
+                _isLocked = true;
                 SetDeployed(_projectDir, true);
+                UpdateDeployButtonsState();
                 _lblApiStatus.Text = "Deploy thành công!";
                 _lblApiStatus.ForeColor = colorGreen;
+
+                if (_btnOpenWeb != null)
+                {
+                    _btnOpenWeb.Visible = true;
+                    _btnDeploy.Visible = false;
+                }
             }
             else
             {
+                _btnDeploy.Enabled = true;
+                _btnDeployFresh.Enabled = true;
                 _lblApiStatus.Text = "Có lỗi xảy ra, xem log.";
                 _lblApiStatus.ForeColor = colorRed;
+
+                if (_btnOpenWeb != null)
+                {
+                    _btnOpenWeb.Visible = false;
+                    _btnDeploy.Visible = true;
+                }
             }
         }
 
@@ -9815,13 +9994,13 @@ $cfg['SendErrorReports']              = 'never';
             } catch (Exception ex) { return "error: " + ex.Message; }
         }
 
-        private string CallDirectAdminDbApi(string host, string port, string user, string pass, string postData)
+        private string CallDirectAdminDbApi(string host, string port, string user, string pass, string postData, string endpoint = "CMD_API_DATABASES")
         {
-            string url = "https://" + host + ":" + port + "/CMD_API_DATABASES";
+            string url = "https://" + host + ":" + port + "/" + endpoint;
             string res = PostHttpWithAuth(url, postData, user, pass);
             if (res.Contains("error") || res.Contains("wrong version number") || res.Contains("The underlying connection was closed") || res.Contains("timed out") || res.Contains("Server Certificate"))
             {
-                url = "http://" + host + ":" + port + "/CMD_API_DATABASES";
+                url = "http://" + host + ":" + port + "/" + endpoint;
                 res = PostHttpWithAuth(url, postData, user, pass);
             }
             return res;
