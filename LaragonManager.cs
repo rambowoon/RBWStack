@@ -320,7 +320,7 @@ namespace RBWStack
 
             if (!Enabled)
             {
-                currentBg = Color.FromArgb(226, 232, 240);
+                currentBg = Color.FromArgb(249, 250, 251);
             }
 
             // Fill rounded background
@@ -332,10 +332,9 @@ namespace RBWStack
                 }
 
                 // Draw border outline
-                if (_borderColor != Color.Transparent && _borderColor.A > 0)
+                if (_borderColor != Color.Transparent && _borderColor.A > 0 && Enabled)
                 {
-                    Color bc = Enabled ? _borderColor : Color.FromArgb(203, 213, 225);
-                    using (Pen pen = new Pen(bc, 1.0f))
+                    using (Pen pen = new Pen(_borderColor, 1.0f))
                     {
                         pen.Alignment = System.Drawing.Drawing2D.PenAlignment.Inset;
                         g.DrawPath(pen, path);
@@ -2053,14 +2052,8 @@ namespace RBWStack
                         foreach (string dir in subDirs)
                         {
                             string folderName = Path.GetFileName(dir);
-                            string localDomain = folderName.ToLower() + ".local";
                             string projectDir = dir.Replace("\\", "/");
-                            
-                            // Add hosts entry
-                            MainForm.AddHostsEntry(localDomain);
 
-                            // Load custom PHP version if any
-                            string phpVer = "Mặc định (Default)";
                             string siteKey = "";
                             if (dir.StartsWith(wwwDir, StringComparison.OrdinalIgnoreCase))
                             {
@@ -2071,14 +2064,31 @@ namespace RBWStack
                                 siteKey = folderName;
                             }
 
+                            bool vhostEnabled;
+                            string vhostDomain;
+                            bool vhostUseSsl;
+                            MainForm.GetVHostConfig(siteKey, folderName, out vhostEnabled, out vhostDomain, out vhostUseSsl);
+
+                            if (!vhostEnabled)
+                            {
+                                MainForm.RemoveHostsEntry(vhostDomain);
+                                continue;
+                            }
+
+                            // Add hosts entry
+                            MainForm.AddHostsEntry(vhostDomain);
+
+                            // Load custom PHP version if any
+                            string phpVer = "Mặc định (Default)";
                             string tempPhpVer;
                             if (sitesConfig.TryGetValue(siteKey, out tempPhpVer) && tempPhpVer != null)
                             {
                                 phpVer = tempPhpVer;
                             }
 
+                            // 1. HTTP Port 80
                             sb.AppendLine(string.Format("<VirtualHost *:{0}>", webPort));
-                            sb.AppendLine(string.Format("    ServerName {0}", localDomain));
+                            sb.AppendLine(string.Format("    ServerName {0}", vhostDomain));
                             sb.AppendLine(string.Format("    DocumentRoot \"{0}\"", projectDir));
                             sb.AppendLine(string.Format("    <Directory \"{0}\">", projectDir));
                             sb.AppendLine("        Options Indexes FollowSymLinks");
@@ -2098,6 +2108,39 @@ namespace RBWStack
                             sb.AppendLine("    </Directory>");
                             sb.AppendLine("</VirtualHost>");
                             sb.AppendLine("");
+
+                            // 2. HTTPS Port 443 (SSL)
+                            if (vhostUseSsl)
+                            {
+                                MainForm.EnsureSslCertificateForDomain(vhostDomain);
+                                string crtFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, string.Format("ssl/domains/{0}.crt", vhostDomain)).Replace("\\", "/");
+                                string keyFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, string.Format("ssl/domains/{0}.key", vhostDomain)).Replace("\\", "/");
+
+                                sb.AppendLine("<VirtualHost *:443>");
+                                sb.AppendLine(string.Format("    ServerName {0}", vhostDomain));
+                                sb.AppendLine(string.Format("    DocumentRoot \"{0}\"", projectDir));
+                                sb.AppendLine("    SSLEngine on");
+                                sb.AppendLine(string.Format("    SSLCertificateFile \"{0}\"", crtFile));
+                                sb.AppendLine(string.Format("    SSLCertificateKeyFile \"{0}\"", keyFile));
+                                sb.AppendLine(string.Format("    <Directory \"{0}\">", projectDir));
+                                sb.AppendLine("        Options Indexes FollowSymLinks");
+                                sb.AppendLine("        AllowOverride All");
+                                sb.AppendLine("        Require all granted");
+                                
+                                if (phpVer != "Mặc định (Default)")
+                                {
+                                    int phpPort = phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)
+                                        ? 9000
+                                        : MainForm.GetPhpPortForVersion(phpVer);
+                                    sb.AppendLine("        <FilesMatch \\.php$>");
+                                    sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", phpPort));
+                                    sb.AppendLine("        </FilesMatch>");
+                                }
+                                
+                                sb.AppendLine("    </Directory>");
+                                sb.AppendLine("</VirtualHost>");
+                                sb.AppendLine("");
+                            }
                         }
                     }
                 }
@@ -2273,14 +2316,8 @@ namespace RBWStack
                         foreach (string dir in subDirs)
                         {
                             string folderName = Path.GetFileName(dir);
-                            string localDomain = folderName.ToLower() + ".local";
                             string projectDir = dir.Replace("\\", "/");
-                            
-                            // Add hosts entry
-                            MainForm.AddHostsEntry(localDomain);
 
-                            // Load custom PHP version if any
-                            string phpVer = "Mặc định (Default)";
                             string siteKey = "";
                             if (dir.StartsWith(wwwDir, StringComparison.OrdinalIgnoreCase))
                             {
@@ -2291,6 +2328,22 @@ namespace RBWStack
                                 siteKey = folderName;
                             }
 
+                            bool vhostEnabled;
+                            string vhostDomain;
+                            bool vhostUseSsl;
+                            MainForm.GetVHostConfig(siteKey, folderName, out vhostEnabled, out vhostDomain, out vhostUseSsl);
+
+                            if (!vhostEnabled)
+                            {
+                                MainForm.RemoveHostsEntry(vhostDomain);
+                                continue;
+                            }
+
+                            // Add hosts entry
+                            MainForm.AddHostsEntry(vhostDomain);
+
+                            // Load custom PHP version if any
+                            string phpVer = "Mặc định (Default)";
                             string tempPhpVer;
                             if (sitesConfig.TryGetValue(siteKey, out tempPhpVer) && tempPhpVer != null)
                             {
@@ -2301,6 +2354,7 @@ namespace RBWStack
                                 ? 9000
                                 : MainForm.GetPhpPortForVersion(phpVer);
 
+                            // 1. HTTP Port 80
                             tunnelServerBlocks.AppendLine(string.Format(@"
     server {{
         listen       {0};
@@ -2319,7 +2373,38 @@ namespace RBWStack
             fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
             include        fastcgi_params;
         }}
-    }}", webPort, localDomain, projectDir, phpPort));
+    }}", webPort, vhostDomain, projectDir, phpPort));
+
+                            // 2. HTTPS Port 443 (SSL)
+                            if (vhostUseSsl)
+                            {
+                                MainForm.EnsureSslCertificateForDomain(vhostDomain);
+                                string crtFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, string.Format("ssl/domains/{0}.crt", vhostDomain)).Replace("\\", "/");
+                                string keyFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, string.Format("ssl/domains/{0}.key", vhostDomain)).Replace("\\", "/");
+
+                                tunnelServerBlocks.AppendLine(string.Format(@"
+    server {{
+        listen       443 ssl;
+        server_name  {0};
+        root         ""{1}"";
+        index        index.php index.html index.htm;
+        client_max_body_size 200M;
+        
+        ssl_certificate      ""{2}"";
+        ssl_certificate_key  ""{3}"";
+        
+        location / {{
+            try_files $uri $uri/ /index.php?$query_string;
+        }}
+        
+        location ~ \.php$ {{
+            fastcgi_pass   127.0.0.1:{4};
+            fastcgi_index  index.php;
+            fastcgi_param  SCRIPT_FILENAME  $document_root$fastcgi_script_name;
+            include        fastcgi_params;
+        }}
+    }}", vhostDomain, projectDir, crtFile, keyFile, phpPort));
+                            }
                         }
                     }
                 }
@@ -2740,6 +2825,7 @@ $cfg['SendErrorReports']              = 'never';
         private ComboBox cbWebVersions;
         private Label lblWebPort;
         private TextBox txtWebPort;
+        private TextBox txtVHostSuffix;
         private ModernButton btnWebStart;
         private ModernButton btnWebStop;
         private ModernButton btnWebConfig;
@@ -2985,7 +3071,7 @@ $cfg['SendErrorReports']              = 'never';
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.0.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.Equals("v2.0.1", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -3928,7 +4014,15 @@ $cfg['SendErrorReports']              = 'never';
             pnlSysBox.Controls.Add(chkAutoOptimizePhpIni);
 
             txtWebPort = new TextBox();
-            addCustomField(pnlSysBox, "Cổng Port Web Server", txtWebPort, "", 20, 178, 305, 30, null);
+            addCustomField(pnlSysBox, "Cổng Port Web Server", txtWebPort, "", 20, 178, 145, 30, null);
+
+            txtVHostSuffix = new TextBox();
+            addCustomField(pnlSysBox, "Đuôi tên miền ảo", txtVHostSuffix, "vhost_suffix", 180, 178, 145, 30, v => {
+                var c = DeployDemoForm.LoadGlobalConfig();
+                c["vhost_suffix"] = v;
+                DeployDemoForm.SaveGlobalConfig(c);
+            });
+            if (string.IsNullOrEmpty(txtVHostSuffix.Text)) txtVHostSuffix.Text = "local";
 
             txtMySqlPort = new TextBox();
             addCustomField(pnlSysBox, "Cổng Port MySQL / MariaDB", txtMySqlPort, "", 20, 238, 305, 30, null);
@@ -4034,7 +4128,7 @@ $cfg['SendErrorReports']              = 'never';
             Label lblAboutDesc = new Label();
             lblAboutDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.0.0 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v2.0.1 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -4069,13 +4163,13 @@ $cfg['SendErrorReports']              = 'never';
                             
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.0.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.Equals("v2.0.1", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.0.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.0.1).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -4662,34 +4756,6 @@ $cfg['SendErrorReports']              = 'never';
 
         private void TmrStatus_Tick(object sender, EventArgs e)
         {
-            // Monitor and restart PHP-CGI processes if they crashed
-            try
-            {
-                if (procPHPList.Count > 0)
-                {
-                    for (int i = 0; i < procPHPList.Count; i++)
-                    {
-                        var p = procPHPList[i];
-                        if (p != null)
-                        {
-                            bool exited = false;
-                            try { exited = p.HasExited; } catch { exited = true; }
-                            if (exited)
-                            {
-                                var newPsi = p.StartInfo;
-                                var newProc = Process.Start(newPsi);
-                                if (newProc != null)
-                                {
-                                    if (p == procPHP) procPHP = newProc;
-                                    procPHPList[i] = newProc;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-
             bool isWebRunning = IsProcessRunning(selectedWebServerType == "Apache" ? "httpd" : "nginx") || (procWebServer != null && !procWebServer.HasExited);
             lblWebStatusDot.BackColor = isWebRunning ? colorGreen : colorRed;
             btnWebStart.Visible = !isWebRunning;
@@ -5307,8 +5373,6 @@ $cfg['SendErrorReports']              = 'never';
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
                 psi.WindowStyle = ProcessWindowStyle.Hidden;
-                psi.EnvironmentVariables["PHP_FCGI_MAX_REQUESTS"] = "0";
-                psi.EnvironmentVariables["PHP_FCGI_CHILDREN"] = "8";
 
                 procPHP = Process.Start(psi);
                 if (procPHP != null) procPHPList.Add(procPHP);
@@ -5343,8 +5407,6 @@ $cfg['SendErrorReports']              = 'never';
                         psiCustom.CreateNoWindow = true;
                         psiCustom.UseShellExecute = false;
                         psiCustom.WindowStyle = ProcessWindowStyle.Hidden;
-                        psiCustom.EnvironmentVariables["PHP_FCGI_MAX_REQUESTS"] = "0";
-                        psiCustom.EnvironmentVariables["PHP_FCGI_CHILDREN"] = "8";
 
                         Process customProc = Process.Start(psiCustom);
                         if (customProc != null)
@@ -7418,12 +7480,79 @@ $cfg['SendErrorReports']              = 'never';
                 string hostsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"drivers\etc\hosts");
                 if (File.Exists(hostsPath))
                 {
-                    string content = File.ReadAllText(hostsPath);
-                    if (!content.Contains(hostname))
+                    string[] lines = File.ReadAllLines(hostsPath);
+                    List<string> newLines = new List<string>();
+                    bool exists = false;
+                    bool corruptedFixed = false;
+
+                    foreach (string line in lines)
                     {
-                        using (StreamWriter sw = File.AppendText(hostsPath))
+                        string trimmed = line.Trim();
+                        if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"\b" + System.Text.RegularExpressions.Regex.Escape(hostname) + @"\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
                         {
-                            sw.WriteLine(string.Format("127.0.0.1 {0}", hostname));
+                            if (trimmed.Contains("127.0.0.1") && !trimmed.StartsWith("127.0.0.1") && !trimmed.StartsWith("#"))
+                            {
+                                int idx = trimmed.IndexOf("127.0.0.1");
+                                string part1 = trimmed.Substring(0, idx).Trim();
+                                string part2 = trimmed.Substring(idx).Trim();
+                                newLines.Add(part1);
+                                newLines.Add(part2);
+                                corruptedFixed = true;
+                                exists = true;
+                                continue;
+                            }
+                            exists = true;
+                        }
+                        newLines.Add(line);
+                    }
+
+                    if (!exists)
+                    {
+                        string lastLine = lines.Length > 0 ? lines[lines.Length - 1] : "";
+                        bool needNewLine = lines.Length > 0 && !lastLine.EndsWith("\n") && !lastLine.EndsWith("\r") && !string.IsNullOrEmpty(lastLine.Trim());
+                        
+                        try
+                        {
+                            using (StreamWriter sw = File.AppendText(hostsPath))
+                            {
+                                if (needNewLine) sw.WriteLine();
+                                sw.WriteLine(string.Format("127.0.0.1 {0}", hostname));
+                            }
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            string appendCmd = string.Format("127.0.0.1 {0}", hostname);
+                            ProcessStartInfo psi = new ProcessStartInfo();
+                            psi.FileName = "cmd.exe";
+                            psi.Arguments = needNewLine 
+                                ? string.Format("/c echo. >> \"{0}\" && echo {1} >> \"{0}\"", hostsPath, appendCmd)
+                                : string.Format("/c echo {1} >> \"{0}\"", hostsPath, appendCmd);
+                            psi.Verb = "runas";
+                            psi.CreateNoWindow = true;
+                            psi.UseShellExecute = true;
+                            Process p = Process.Start(psi);
+                            p.WaitForExit();
+                        }
+                    }
+                    else if (corruptedFixed)
+                    {
+                        try
+                        {
+                            File.WriteAllLines(hostsPath, newLines.ToArray());
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            string tempFile = Path.Combine(Path.GetTempPath(), "hosts_temp");
+                            File.WriteAllLines(tempFile, newLines.ToArray());
+                            
+                            ProcessStartInfo psi = new ProcessStartInfo();
+                            psi.FileName = "cmd.exe";
+                            psi.Arguments = string.Format("/c copy /y \"{0}\" \"{1}\" && del /f /q \"{0}\"", tempFile, hostsPath);
+                            psi.Verb = "runas";
+                            psi.CreateNoWindow = true;
+                            psi.UseShellExecute = true;
+                            Process p = Process.Start(psi);
+                            p.WaitForExit();
                         }
                     }
                 }
@@ -7554,10 +7683,31 @@ $cfg['SendErrorReports']              = 'never';
             catch { }
         }
 
+        public static string GetActiveWebPort()
+        {
+            try
+            {
+                foreach (Form f in Application.OpenForms)
+                {
+                    if (f is MainForm)
+                    {
+                        return ((MainForm)f).GetWebPort();
+                    }
+                }
+            }
+            catch { }
+            return "80";
+        }
+
         public static void UpdateAllProjectsEnvFiles(string activeRoot)
         {
             try
             {
+                if (string.IsNullOrEmpty(activeRoot))
+                {
+                    activeRoot = LoadRootProjectConfig();
+                }
+
                 string sitesParent = GetSitesParentDirectory();
                 string wwwDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "www");
                 if (Directory.Exists(sitesParent))
@@ -7585,23 +7735,89 @@ $cfg['SendErrorReports']              = 'never';
                         try
                         {
                             bool isRoot = relativeSitePath.Equals(activeRoot, StringComparison.OrdinalIgnoreCase);
-                            string expectedVal = isRoot ? "/" : "/" + relativeSitePath.TrimEnd('/') + "/";
-                            
+                            bool vhostEnabled;
+                            string vhostDomain;
+                            bool vhostUseSsl;
+                            GetVHostConfig(relativeSitePath, folderName, out vhostEnabled, out vhostDomain, out vhostUseSsl);
+
+                            bool isSiteRoot = isRoot || vhostEnabled;
+                            string expectedVal = isSiteRoot ? "" : "/" + relativeSitePath.TrimEnd('/') + "/";
+
                             string[] lines = File.ReadAllLines(envPath);
-                            bool found = false;
+                            string currentUrl = "";
+                            bool foundUrl = false;
+
+                            for (int i = 0; i < lines.Length; i++)
+                            {
+                                var match = Regex.Match(lines[i], @"^\s*APP_URL\s*=\s*(.*)");
+                                if (match.Success)
+                                {
+                                    currentUrl = match.Groups[1].Value.Trim();
+                                    foundUrl = true;
+                                    break;
+                                }
+                            }
+
+                            string expectedUrl = "";
+
+                            if (foundUrl && !string.IsNullOrEmpty(currentUrl))
+                            {
+                                if (vhostEnabled)
+                                {
+                                    if (currentUrl.Contains("localhost"))
+                                    {
+                                        expectedUrl = Regex.Replace(currentUrl, @"localhost", vhostDomain, RegexOptions.IgnoreCase);
+                                    }
+                                    else
+                                    {
+                                        expectedUrl = currentUrl;
+                                    }
+                                }
+                                else
+                                {
+                                    if (currentUrl.Contains(vhostDomain))
+                                    {
+                                        expectedUrl = Regex.Replace(currentUrl, Regex.Escape(vhostDomain), "localhost", RegexOptions.IgnoreCase);
+                                    }
+                                    else
+                                    {
+                                        expectedUrl = currentUrl;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (vhostEnabled)
+                                {
+                                    expectedUrl = "\"https://" + vhostDomain + "${SITE_PATH}\"";
+                                }
+                                else
+                                {
+                                    expectedUrl = "\"https://localhost${SITE_PATH}\"";
+                                }
+                            }
+                            
+                            bool foundPath = false;
+                            bool foundUrlLine = false;
                             for (int i = 0; i < lines.Length; i++)
                             {
                                 if (Regex.IsMatch(lines[i], @"^\s*SITE_PATH\s*="))
                                 {
                                     lines[i] = "SITE_PATH=" + expectedVal;
-                                    found = true;
+                                    foundPath = true;
+                                }
+                                if (Regex.IsMatch(lines[i], @"^\s*APP_URL\s*="))
+                                {
+                                    lines[i] = "APP_URL=" + expectedUrl;
+                                    foundUrlLine = true;
                                 }
                             }
 
-                            if (!found)
+                            if (!foundPath || !foundUrlLine)
                             {
                                 List<string> list = new List<string>(lines);
-                                list.Add("SITE_PATH=" + expectedVal);
+                                if (!foundPath) list.Add("SITE_PATH=" + expectedVal);
+                                if (!foundUrlLine) list.Add("APP_URL=" + expectedUrl);
                                 lines = list.ToArray();
                             }
 
@@ -7793,7 +8009,7 @@ $cfg['SendErrorReports']              = 'never';
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.0.0  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.0.1  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
@@ -8070,6 +8286,74 @@ $cfg['SendErrorReports']              = 'never';
             catch { }
         }
 
+        public static void EnsureSslCertificateForDomain(string domain)
+        {
+            try
+            {
+                string sslDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ssl");
+                string domainsDir = Path.Combine(sslDir, "domains");
+                if (!Directory.Exists(domainsDir)) Directory.CreateDirectory(domainsDir);
+
+                string crtFile = Path.Combine(domainsDir, domain + ".crt");
+                string keyFile = Path.Combine(domainsDir, domain + ".key");
+
+                if (!File.Exists(crtFile) || !File.Exists(keyFile))
+                {
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    string apacheBinRoot = Path.Combine(baseDir, @"bin\apache");
+                    string opensslExe = "";
+                    string opensslCnf = "";
+                    if (Directory.Exists(apacheBinRoot))
+                    {
+                        string[] apacheDirs = Directory.GetDirectories(apacheBinRoot);
+                        if (apacheDirs.Length > 0)
+                        {
+                            Array.Sort(apacheDirs);
+                            string newestApache = apacheDirs[apacheDirs.Length - 1];
+                            opensslExe = Path.Combine(newestApache, @"bin\openssl.exe");
+                            opensslCnf = Path.Combine(newestApache, @"conf\openssl.cnf");
+                        }
+                    }
+
+                    if (File.Exists(opensslExe) && File.Exists(opensslCnf))
+                    {
+                        ProcessStartInfo psi = new ProcessStartInfo();
+                        psi.FileName = opensslExe;
+                        psi.Arguments = string.Format(
+                            "req -x509 -nodes -days 3650 -newkey rsa:2048 -keyout \"{0}\" -out \"{1}\" -subj \"/CN={3}\" -config \"{2}\" -addext \"subjectAltName = DNS:{3}\"",
+                            keyFile, crtFile, opensslCnf, domain
+                        );
+                        psi.CreateNoWindow = true;
+                        psi.UseShellExecute = false;
+                        Process p = Process.Start(psi);
+                        p.WaitForExit();
+
+                        if (File.Exists(crtFile))
+                        {
+                            try
+                            {
+                                var cert = new System.Security.Cryptography.X509Certificates.X509Certificate2(crtFile);
+                                using (var store = new System.Security.Cryptography.X509Certificates.X509Store(
+                                    System.Security.Cryptography.X509Certificates.StoreName.Root, 
+                                    System.Security.Cryptography.X509Certificates.StoreLocation.CurrentUser))
+                                {
+                                    store.Open(System.Security.Cryptography.X509Certificates.OpenFlags.ReadWrite);
+                                    var oldCerts = store.Certificates.Find(System.Security.Cryptography.X509Certificates.X509FindType.FindBySubjectName, domain, false);
+                                    foreach (var oldCert in oldCerts)
+                                    {
+                                        try { store.Remove(oldCert); } catch { }
+                                    }
+                                    store.Add(cert);
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
         public static Dictionary<string, string> LoadTunnelsConfig()
         {
             Dictionary<string, string> config = new Dictionary<string, string>();
@@ -8338,6 +8622,7 @@ $cfg['SendErrorReports']              = 'never';
                     {
                         relativeSitePath = folderName;
                     }
+                    bool isRoot = activeRootProj.Equals(relativeSitePath, StringComparison.OrdinalIgnoreCase);
 
                     Panel pnlCard = new Panel();
                     pnlCard.Size = new Size(700, 48);
@@ -8370,7 +8655,7 @@ $cfg['SendErrorReports']              = 'never';
 
                     // Dynamically calculate control positions based on tunnel state to maximize project name space
                     int btnDeployX = 658;
-                    int btnUrlX, btnOpenX, btnTunnelX, btnTunnelUrlX, cbPhpX, lblNameWidth, btnSetRootX;
+                    int btnUrlX, btnOpenX, btnTunnelX, btnTunnelUrlX, cbPhpX, lblNameWidth, btnSetRootX, btnVHostX;
                     if (isTunnelActive)
                     {
                         btnTunnelUrlX = 622;
@@ -8378,8 +8663,9 @@ $cfg['SendErrorReports']              = 'never';
                         btnOpenX = 548;
                         btnUrlX = 511;
                         btnSetRootX = 474;
-                        cbPhpX = 341;
-                        lblNameWidth = 321;
+                        btnVHostX = 437;
+                        cbPhpX = 303;
+                        lblNameWidth = 283;
                     }
                     else
                     {
@@ -8388,9 +8674,12 @@ $cfg['SendErrorReports']              = 'never';
                         btnOpenX = 585;
                         btnUrlX = 548;
                         btnSetRootX = 511;
-                        cbPhpX = 378;
-                        lblNameWidth = 358;
+                        btnVHostX = 474;
+                        cbPhpX = 341;
+                        lblNameWidth = 320;
                     }
+
+                    ToolTip toolTip = new ToolTip();
 
                     Label lblName = new Label();
                     lblName.Text = relativeSitePath;
@@ -8402,13 +8691,25 @@ $cfg['SendErrorReports']              = 'never';
                     pnlCard.Controls.Add(lblName);
 
                     string webPort = GetWebPort();
-                    bool isRoot = activeRootProj.Equals(relativeSitePath, StringComparison.OrdinalIgnoreCase);
-                    string siteUrl = isRoot
-                        ? "https://" + "localhost" + (webPort == "80" ? "" : ":" + webPort)
-                        : "https://" + "localhost" + (webPort == "80" ? "" : ":" + webPort) + "/" + relativeSitePath;
+                    bool vhostEnabled;
+                    string vhostDomain;
+                    bool vhostUseSsl;
+                    GetVHostConfig(relativeSitePath, folderName, out vhostEnabled, out vhostDomain, out vhostUseSsl);
+
+                    string siteUrl = "";
+                    if (vhostEnabled)
+                    {
+                        siteUrl = "https://" + vhostDomain;
+                    }
+                    else
+                    {
+                        siteUrl = isRoot
+                            ? "https://" + "localhost" + (webPort == "80" ? "" : ":" + webPort)
+                            : "https://" + "localhost" + (webPort == "80" ? "" : ":" + webPort) + "/" + relativeSitePath;
+                    }
 
                     ModernButton btnUrl = new ModernButton();
-                    btnUrl.Text = "🌐";
+                    btnUrl.Text = "🔗";
                     btnUrl.Font = new Font("Segoe UI", 10f);
                     btnUrl.NormalColor = Color.White;
                     btnUrl.BorderColor = colorBorder;
@@ -8419,6 +8720,33 @@ $cfg['SendErrorReports']              = 'never';
                         try { Process.Start(siteUrl); } catch { }
                     };
                     pnlCard.Controls.Add(btnUrl);
+
+                    ModernButton btnVHost = new ModernButton();
+                    btnVHost.Text = "🌐";
+                    btnVHost.Font = new Font("Segoe UI", 10f);
+                    btnVHost.NormalColor = Color.White;
+                    btnVHost.BorderColor = colorBorder;
+                    if (vhostEnabled)
+                    {
+                        btnVHost.ForeColor = Color.FromArgb(16, 185, 129); // Green
+                        toolTip.SetToolTip(btnVHost, "Host ảo đang BẬT: " + siteUrl + ". Click để cấu hình.");
+                    }
+                    else
+                    {
+                        btnVHost.ForeColor = Color.FromArgb(107, 114, 128); // Gray
+                        toolTip.SetToolTip(btnVHost, "Host ảo đang TẮT. Click để cấu hình.");
+                    }
+                    btnVHost.Location = new Point(btnVHostX, 10);
+                    btnVHost.Size = new Size(32, 28);
+                    btnVHost.Click += (s, e) => {
+                        var vhostForm = new VirtualHostForm(relativeSitePath, folderName);
+                        if (vhostForm.ShowDialog(this) == DialogResult.OK)
+                        {
+                            RestartWebServicesAndPhp();
+                            RenderSitesList();
+                        }
+                    };
+                    pnlCard.Controls.Add(btnVHost);
 
                     ModernButton btnOpen = new ModernButton();
                     btnOpen.Text = "📂";
@@ -8433,7 +8761,6 @@ $cfg['SendErrorReports']              = 'never';
                     };
                     pnlCard.Controls.Add(btnOpen);
 
-                    ToolTip toolTip = new ToolTip();
                     toolTip.SetToolTip(btnUrl, siteUrl);
                     toolTip.SetToolTip(btnOpen, "Mở thư mục dự án");
 
@@ -8599,7 +8926,7 @@ $cfg['SendErrorReports']              = 'never';
                     btnDeploy.CornerRadius = 4;
                     btnDeploy.Size = new Size(32, 28);
                     btnDeploy.Location = new Point(btnDeployX, 10);
-                    toolTip.SetToolTip(btnDeploy, alreadyDeployed ? "Đã deploy - click để mở popup cấu hình/khóa" : "Deploy Demo lên hosting");
+                    toolTip.SetToolTip(btnDeploy, alreadyDeployed ? "Đã deploy - click để mở khóa deploy lại" : "Deploy Demo lên hosting");
 
                     if (alreadyDeployed)
                     {
@@ -8608,6 +8935,17 @@ $cfg['SendErrorReports']              = 'never';
                         btnDeploy.HoverColor = Color.FromArgb(220, 252, 231);
                         btnDeploy.BorderColor = Color.FromArgb(74, 222, 128);
                         btnDeploy.ForeColor = Color.FromArgb(21, 128, 61);
+                        btnDeploy.Click += (s, e) => {
+                            var res = MessageBox.Show(
+                                "Dự án này đã được deploy lên demo hosting.\n\nBạn có muốn mở khóa để deploy lại không?",
+                                "Xác nhận mở khóa",
+                                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                            if (res == DialogResult.Yes)
+                            {
+                                DeployDemoForm.SetDeployed(captureDir2, false);
+                                RenderSitesList(); // refresh card to turn back to ⚡ button!
+                            }
+                        };
                     }
                     else
                     {
@@ -8616,12 +8954,12 @@ $cfg['SendErrorReports']              = 'never';
                         btnDeploy.HoverColor = Color.FromArgb(245, 243, 255);
                         btnDeploy.BorderColor = colorBorder;
                         btnDeploy.ForeColor = Color.FromArgb(139, 92, 246);
+                        btnDeploy.Click += (s, e) => {
+                            var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
+                            deployForm.ShowDialog(this);
+                            RenderSitesList(); // refresh card after deploy
+                        };
                     }
-                    btnDeploy.Click += (s, e) => {
-                        var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
-                        deployForm.ShowDialog(this);
-                        RenderSitesList(); // refresh card after deploy
-                    };
                     pnlCard.Controls.Add(btnDeploy);
 
                     currentY += 56;
@@ -8640,7 +8978,267 @@ $cfg['SendErrorReports']              = 'never';
             }
             base.WndProc(ref m);
         }
+
+        // ── VIRTUAL HOST CONFIGURATION ──────────────────────────────
+        public static string VHostsConfigPath
+        {
+            get { return ConfigHelper.GetDataFilePath("sites_vhosts.json"); }
+        }
+
+        public static Dictionary<string, string> LoadVHostsConfig()
+        {
+            if (!File.Exists(VHostsConfigPath)) return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try
+            {
+                return DeployDemoForm.ParseJson(File.ReadAllText(VHostsConfigPath));
+            }
+            catch
+            {
+                return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
+        }
+
+        public static void SaveVHostsConfig(Dictionary<string, string> dict)
+        {
+            try
+            {
+                File.WriteAllText(VHostsConfigPath, DeployDemoForm.SerializeJson(dict));
+            }
+            catch { }
+        }
+
+        public static string GetVHostSuffix()
+        {
+            var c = DeployDemoForm.LoadGlobalConfig();
+            if (c.ContainsKey("vhost_suffix") && !string.IsNullOrEmpty(c["vhost_suffix"]))
+            {
+                return c["vhost_suffix"].Trim().TrimStart('.').ToLower();
+            }
+            return "local";
+        }
+
+        public static void GetVHostConfig(string sitePath, string folderName, out bool enabled, out string domain, out bool useSsl)
+        {
+            enabled = false;
+            domain = folderName.ToLower() + "." + GetVHostSuffix();
+            useSsl = true; // Always true to generate both HTTP + HTTPS automatically!
+
+            var config = LoadVHostsConfig();
+            string val;
+            if (config.TryGetValue(sitePath, out val) && !string.IsNullOrEmpty(val))
+            {
+                string[] parts = val.Split('|');
+                if (parts.Length >= 2)
+                {
+                    enabled = (parts[0] == "1");
+                    domain = parts[1];
+                    if (parts.Length >= 3)
+                    {
+                        useSsl = (parts[2] == "1");
+                    }
+                }
+            }
+        }
+
+        public static void SaveVHostConfig(string sitePath, bool enabled, string domain, bool useSsl)
+        {
+            var config = LoadVHostsConfig();
+            config[sitePath] = string.Format("{0}|{1}|{2}", enabled ? "1" : "0", domain.Trim().ToLower(), useSsl ? "1" : "0");
+            SaveVHostsConfig(config);
+        }
+
+        public static void RemoveHostsEntry(string hostname)
+        {
+            try
+            {
+                string hostsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"drivers\etc\hosts");
+                if (File.Exists(hostsPath))
+                {
+                    string[] lines = File.ReadAllLines(hostsPath);
+                    List<string> newLines = new List<string>();
+                    bool changed = false;
+                    foreach (string line in lines)
+                    {
+                        string trimmed = line.Trim();
+                        if (System.Text.RegularExpressions.Regex.IsMatch(trimmed, @"\b" + System.Text.RegularExpressions.Regex.Escape(hostname) + @"\b", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                        {
+                            if (trimmed.Contains("127.0.0.1") && !trimmed.StartsWith("127.0.0.1") && !trimmed.StartsWith("#"))
+                            {
+                                int idx = trimmed.IndexOf("127.0.0.1");
+                                string part1 = trimmed.Substring(0, idx).Trim();
+                                newLines.Add(part1);
+                                changed = true;
+                                continue;
+                            }
+                            changed = true;
+                            continue;
+                        }
+                        newLines.Add(line);
+                    }
+                    if (changed)
+                    {
+                        try
+                        {
+                            File.WriteAllLines(hostsPath, newLines.ToArray());
+                        }
+                        catch (UnauthorizedAccessException)
+                        {
+                            string tempFile = Path.Combine(Path.GetTempPath(), "hosts_temp");
+                            File.WriteAllLines(tempFile, newLines.ToArray());
+                            
+                            ProcessStartInfo psi = new ProcessStartInfo();
+                            psi.FileName = "cmd.exe";
+                            psi.Arguments = string.Format("/c copy /y \"{0}\" \"{1}\" && del /f /q \"{0}\"", tempFile, hostsPath);
+                            psi.Verb = "runas";
+                            psi.CreateNoWindow = true;
+                            psi.UseShellExecute = true;
+                            Process p = Process.Start(psi);
+                            p.WaitForExit();
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
     }
+
+    // =======================================================
+    // VIRTUAL HOST CONFIGURATION FORM
+    // =======================================================
+    public class VirtualHostForm : Form
+    {
+        private string _sitePath;
+        private string _folderName;
+
+        private CheckBox _chkEnabled;
+        private TextBox _txtDomain;
+        private ModernButton _btnSave;
+        private ModernButton _btnCancel;
+
+        private Color colorBg = Color.FromArgb(248, 250, 252);
+        private Color colorBorder = Color.FromArgb(226, 232, 240);
+        private Color colorText = Color.FromArgb(15, 23, 42);
+        private Color colorTextDim = Color.FromArgb(100, 116, 139);
+
+        private void ApplyRoundedRegion(Control control, int radius)
+        {
+            // Fully disabled to prevent Access Violations / GDI+ Region crashes
+        }
+
+        public VirtualHostForm(string sitePath, string folderName)
+        {
+            _sitePath = sitePath;
+            _folderName = folderName;
+
+            this.Text = "Cấu hình Host ảo - " + folderName;
+            this.Size = new Size(380, 180);
+            this.FormBorderStyle = FormBorderStyle.None;
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.BackColor = colorBg;
+            this.ShowInTaskbar = false;
+
+            this.Paint += (s, e) => {
+                using (Pen pen = new Pen(colorBorder, 2f))
+                {
+                    e.Graphics.DrawRectangle(pen, 1, 1, this.Width - 2, this.Height - 2);
+                }
+            };
+            ApplyRoundedRegion(this, 12);
+
+            Label lblTitle = new Label();
+            lblTitle.Text = "🌐  CẤU HÌNH HOST ẢO LOCAL";
+            lblTitle.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+            lblTitle.ForeColor = Color.FromArgb(59, 130, 246);
+            lblTitle.Location = new Point(20, 15);
+            lblTitle.Size = new Size(340, 25);
+            this.Controls.Add(lblTitle);
+
+            bool enabled;
+            string domain;
+            bool useSsl;
+            MainForm.GetVHostConfig(sitePath, folderName, out enabled, out domain, out useSsl);
+
+            _chkEnabled = new CheckBox();
+            _chkEnabled.Text = "Kích hoạt Host ảo chạy local";
+            _chkEnabled.Font = new Font("Segoe UI Semibold", 9.5f);
+            _chkEnabled.ForeColor = colorText;
+            _chkEnabled.Checked = enabled;
+            _chkEnabled.Location = new Point(25, 52);
+            _chkEnabled.Size = new Size(330, 25);
+            _chkEnabled.FlatStyle = FlatStyle.Flat;
+            _chkEnabled.FlatAppearance.BorderSize = 1;
+            _chkEnabled.FlatAppearance.BorderColor = colorBorder;
+            _chkEnabled.CheckedChanged += (s, e) => {
+                _txtDomain.Enabled = _chkEnabled.Checked;
+            };
+            this.Controls.Add(_chkEnabled);
+
+            Label lblDomain = new Label();
+            lblDomain.Text = "Tên miền ảo:";
+            lblDomain.Font = new Font("Segoe UI", 9f);
+            lblDomain.ForeColor = colorTextDim;
+            lblDomain.Location = new Point(25, 93);
+            lblDomain.Size = new Size(90, 20);
+            this.Controls.Add(lblDomain);
+
+            _txtDomain = new TextBox();
+            _txtDomain.Text = domain;
+            _txtDomain.Font = new Font("Segoe UI", 9.5f);
+            _txtDomain.Location = new Point(115, 90);
+            _txtDomain.Size = new Size(240, 25);
+            _txtDomain.Enabled = enabled;
+            this.Controls.Add(_txtDomain);
+
+            _btnSave = new ModernButton();
+            _btnSave.Text = "Lưu & Áp dụng";
+            _btnSave.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            _btnSave.NormalColor = Color.FromArgb(59, 130, 246);
+            _btnSave.HoverColor = Color.FromArgb(37, 99, 235);
+            _btnSave.ForeColor = Color.White;
+            _btnSave.Location = new Point(70, 132);
+            _btnSave.Size = new Size(130, 32);
+            _btnSave.CornerRadius = 6;
+            _btnSave.Click += (s, e) => {
+                string newDomain = _txtDomain.Text.Trim().ToLower();
+                if (string.IsNullOrEmpty(newDomain))
+                {
+                    MessageBox.Show("Vui lòng nhập tên miền ảo hợp lệ!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                if (!enabled || newDomain != domain)
+                {
+                    MainForm.RemoveHostsEntry(domain);
+                }
+
+                MainForm.SaveVHostConfig(_sitePath, _chkEnabled.Checked, newDomain, true);
+
+                // Update the project's .env file immediately!
+                MainForm.UpdateAllProjectsEnvFiles("");
+
+                this.DialogResult = DialogResult.OK;
+                this.Close();
+            };
+            this.Controls.Add(_btnSave);
+
+            _btnCancel = new ModernButton();
+            _btnCancel.Text = "Hủy";
+            _btnCancel.Font = new Font("Segoe UI", 9.5f);
+            _btnCancel.NormalColor = Color.White;
+            _btnCancel.HoverColor = Color.FromArgb(243, 244, 246);
+            _btnCancel.ForeColor = Color.FromArgb(107, 114, 128);
+            _btnCancel.BorderColor = colorBorder;
+            _btnCancel.Location = new Point(210, 132);
+            _btnCancel.Size = new Size(100, 32);
+            _btnCancel.CornerRadius = 6;
+            _btnCancel.Click += (s, e) => {
+                this.DialogResult = DialogResult.Cancel;
+                this.Close();
+            };
+            this.Controls.Add(_btnCancel);
+        }
+    }
+
 
     // =======================================================
     // DEPLOY DEMO FORM - Tối giản, chỉ nhập Database & SSL
@@ -8661,10 +9259,6 @@ $cfg['SendErrorReports']              = 'never';
         private TextBox _txtDbName;
         private bool _onlyDbChecked = false;
         private bool _use7zipChecked = false;
-        private bool _isLocked = false;
-        private ModernButton _btnLockToggle;
-        private ModernButton _btnOpenWeb;
-        private string _deployedUrl = "";
 
         // Hidden backing fields for FTP/DA config (loaded from global settings)
         private TextBox _txtFtpHost, _txtFtpUser, _txtFtpPass, _txtFtpRoot, _txtDaUser, _txtDaPort, _txtWebDomain;
@@ -8705,7 +9299,6 @@ $cfg['SendErrorReports']              = 'never';
         {
             _projectDir = projectDir;
             _sitePath = sitePath;
-            _isLocked = IsDeployed(_projectDir);
 
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterParent;
@@ -8802,7 +9395,7 @@ $cfg['SendErrorReports']              = 'never';
             _lblApiStatus.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
             _lblApiStatus.ForeColor = colorDim;
             _lblApiStatus.Location = new Point(15, 425);
-            _lblApiStatus.Size = new Size(175, 25);
+            _lblApiStatus.Size = new Size(300, 25);
             _lblApiStatus.TextAlign = ContentAlignment.MiddleLeft;
             this.Controls.Add(_lblApiStatus);
 
@@ -8815,48 +9408,10 @@ $cfg['SendErrorReports']              = 'never';
             _btnDeploy.BorderColor = Color.Transparent;
             _btnDeploy.ForeColor = Color.White;
             _btnDeploy.CornerRadius = 6;
-            _btnDeploy.Location = new Point(195, 422);
+            _btnDeploy.Location = new Point(325, 422);
             _btnDeploy.Size = new Size(125, 32);
             _btnDeploy.Click += (s, e) => StartDeploy(_onlyDbChecked);
             this.Controls.Add(_btnDeploy);
-
-            _btnLockToggle = new ModernButton();
-            _btnLockToggle.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
-            _btnLockToggle.CornerRadius = 6;
-            _btnLockToggle.Location = new Point(328, 422);
-            _btnLockToggle.Size = new Size(125, 32);
-            _btnLockToggle.Click += (s, e) =>
-            {
-                _isLocked = !_isLocked;
-                SetDeployed(_projectDir, _isLocked);
-                if (!_isLocked)
-                {
-                    if (_btnOpenWeb != null) _btnOpenWeb.Visible = false;
-                    _btnDeploy.Visible = true;
-                }
-                UpdateDeployButtonsState();
-            };
-            this.Controls.Add(_btnLockToggle);
-
-            _btnOpenWeb = new ModernButton();
-            _btnOpenWeb.Text = "🌐 Vào Web";
-            _btnOpenWeb.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
-            _btnOpenWeb.NormalColor = colorGreen;
-            _btnOpenWeb.HoverColor = Color.FromArgb(52, 211, 153);
-            _btnOpenWeb.PressedColor = Color.FromArgb(5, 150, 105);
-            _btnOpenWeb.BorderColor = Color.Transparent;
-            _btnOpenWeb.ForeColor = Color.White;
-            _btnOpenWeb.CornerRadius = 6;
-            _btnOpenWeb.Location = new Point(195, 422);
-            _btnOpenWeb.Size = new Size(125, 32);
-            _btnOpenWeb.Visible = false;
-            _btnOpenWeb.Click += (s, e) => {
-                if (!string.IsNullOrEmpty(_deployedUrl))
-                {
-                    try { System.Diagnostics.Process.Start(_deployedUrl); } catch { }
-                }
-            };
-            this.Controls.Add(_btnOpenWeb);
 
             _btnDeployFresh = new ModernButton();
             _btnDeployFresh.Text = "Chỉ Database";
@@ -8887,7 +9442,6 @@ $cfg['SendErrorReports']              = 'never';
             this.Controls.Add(_btnCleanup);
 
             LoadConfig();
-            UpdateDeployButtonsState();
         }
 
         private void BuildConfigPanel()
@@ -9071,60 +9625,6 @@ $cfg['SendErrorReports']              = 'never';
             _pnlConfig.Controls.Add(lblHint);
         }
 
-        private void UpdateDeployButtonsState()
-        {
-            if (_isLocked)
-            {
-                _btnDeploy.Enabled = false;
-                _btnDeployFresh.Enabled = false;
-                _lblApiStatus.Text = "Dự án đã khóa deploy";
-                _lblApiStatus.ForeColor = colorRed;
-
-                if (_btnLockToggle != null)
-                {
-                    _btnLockToggle.Text = "🔓 Mở khóa";
-                    _btnLockToggle.NormalColor = Color.White;
-                    _btnLockToggle.HoverColor = Color.FromArgb(240, 253, 244);
-                    _btnLockToggle.PressedColor = Color.FromArgb(220, 252, 231);
-                    _btnLockToggle.BorderColor = colorGreen;
-                    _btnLockToggle.ForeColor = colorGreen;
-                }
-
-                if (_btnOpenWeb != null)
-                {
-                    string scheme = _chkSsl.Checked ? "https://" : "http://";
-                    string relWebPath = _sitePath.Replace('\\', '/').TrimStart('/');
-                    _deployedUrl = scheme + _txtWebDomain.Text.Trim() + "/" + relWebPath + "/";
-                    _btnOpenWeb.Visible = true;
-                    _btnDeploy.Visible = false;
-                }
-            }
-            else
-            {
-                _btnDeploy.Enabled = true;
-                _btnDeployFresh.Enabled = true;
-                _lblApiStatus.Text = "Sẵn sàng deploy";
-                _lblApiStatus.ForeColor = colorDim;
-
-                if (_btnLockToggle != null)
-                {
-                    _btnLockToggle.Text = "🔒 Khóa";
-                    _btnLockToggle.NormalColor = Color.White;
-                    _btnLockToggle.HoverColor = Color.FromArgb(254, 242, 242);
-                    _btnLockToggle.PressedColor = Color.FromArgb(254, 226, 226);
-                    _btnLockToggle.BorderColor = Color.FromArgb(248, 113, 113);
-                    _btnLockToggle.ForeColor = Color.FromArgb(239, 68, 68);
-                }
-
-                if (_btnOpenWeb != null)
-                {
-                    _btnOpenWeb.Visible = false;
-                    _btnDeploy.Visible = true;
-                }
-            }
-            if (_btnLockToggle != null) _btnLockToggle.Invalidate();
-        }
-
         private void LoadConfig()
         {
             var cfg = LoadGlobalConfig();
@@ -9207,11 +9707,6 @@ $cfg['SendErrorReports']              = 'never';
             _btnDeploy.Enabled = false;
             _btnDeployFresh.Enabled = false;
             _btnCleanup.Enabled = false;
-            if (_btnOpenWeb != null)
-            {
-                _btnOpenWeb.Visible = false;
-                _btnDeploy.Visible = true;
-            }
             _lblApiStatus.Text = "Đang xử lý...";
             _lblApiStatus.ForeColor = Color.FromArgb(245, 158, 11);
 
@@ -9372,10 +9867,34 @@ $cfg['SendErrorReports']              = 'never';
                             AppendLog("✅ Export SQL thành công: " + Math.Round(new FileInfo(sqlPath).Length / 1024.0, 1) + " KB", colorGreen);
                     }
 
-                    // Step 3: Define FTP parameters and upload bridge.php early for DB check
+                    // Step 3: Upload via curl FTP
+                    AppendLog("☁️ Đang upload lên FTP...", colorText);
                     string ftpBase = "ftp://" + ftpHost + "/" + ftpRoot.TrimStart('/') + "/" + sitePath.Replace('\\', '/').TrimStart('/') + "/";
                     string ftpCreds = ftpUser + ":" + ftpPass;
 
+                    bool uploadOk = true;
+                    if (!onlyDb && File.Exists(zipPath))
+                    {
+                        AppendLog("  ↑ Uploading dist.zip...", colorDim);
+                        string uploadErrZip;
+                        if (!UploadFtp(ftpBase + "dist.zip", ftpCreds, zipPath, out uploadErrZip))
+                        {
+                            AppendLog("❌ Upload zip thất bại: " + uploadErrZip, colorRed);
+                            uploadOk = false;
+                        }
+                    }
+
+                    if (File.Exists(sqlPath))
+                    {
+                        AppendLog("  ↑ Uploading dist.sql...", colorDim);
+                        string uploadErrSql;
+                        if (!UploadFtp(ftpBase + "dist.sql", ftpCreds, sqlPath, out uploadErrSql))
+                        {
+                            AppendLog("⚠️ Upload SQL thất bại: " + uploadErrSql, Color.FromArgb(245, 158, 11));
+                        }
+                    }
+
+                    // Upload bridge.php
                     string bridgePath = ConfigHelper.GetDataFilePath("bridge.php");
                     if (File.Exists(bridgePath))
                     {
@@ -9393,291 +9912,71 @@ $cfg['SendErrorReports']              = 'never';
                     if (!File.Exists(bridgePath)) bridgePath = Path.Combine(baseAppDir, "bridge.php");
                     if (File.Exists(bridgePath))
                     {
-                        AppendLog("  ↑ Uploading bridge.php for database checks...", colorDim);
+                        AppendLog("  ↑ Uploading bridge.php...", colorDim);
                         string _ignoredBridgeErr;
                         UploadFtp(ftpBase + "bridge.php", ftpCreds, bridgePath, out _ignoredBridgeErr);
-                    }
-
-                    string finalDbName = "";
-                    string finalDbPass = "";
-                    bool clearDb = false;
-                    bool skipImportDb = false;
-
-                    string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
-                    string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
-                    finalDbName = mainUser + "_" + dbSuffix;
-
-                    // Download remote .env to read current password
-                    string envDbName = "";
-                    string envDbUser = "";
-                    string envDbPass = "";
-                    string remoteEnvTemp = Path.Combine(tempDir, "remote_env_check_" + jobId);
-                    string remoteEnvUrl = ftpBase + ".env";
-                    string ftpErrCheck;
-                    bool hasRemoteEnv = DownloadFtp(remoteEnvUrl, ftpCreds, remoteEnvTemp, out ftpErrCheck);
-                    if (hasRemoteEnv && File.Exists(remoteEnvTemp))
-                    {
-                        foreach (string line in File.ReadAllLines(remoteEnvTemp))
-                        {
-                            string trimmed = line.Trim();
-                            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
-                            int idx = trimmed.IndexOf('=');
-                            if (idx <= 0) continue;
-                            string key = trimmed.Substring(0, idx).Trim().ToUpper();
-                            string val = trimmed.Substring(idx + 1).Trim().Trim('"', '\'');
-                            if (key == "DB_DATABASE" || key == "DB_NAME") envDbName = val;
-                            else if (key == "DB_USERNAME" || key == "DB_USER") envDbUser = val;
-                            else if (key == "DB_PASSWORD" || key == "DB_PASS") envDbPass = val;
-                        }
-                        File.Delete(remoteEnvTemp);
-                    }
-
-                    string targetDbName = !string.IsNullOrEmpty(envDbName) ? envDbName : finalDbName;
-                    string targetDbUser = !string.IsNullOrEmpty(envDbUser) ? envDbUser : finalDbName;
-                    string targetDbPass = !string.IsNullOrEmpty(envDbPass) ? envDbPass : "";
-
-                    bool dbCheckSuccess = false;
-                    bool dbHasData = false;
-                    string scheme = useSSL ? "https://" : "http://";
-                    string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
-                    string checkDbUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=checkDb";
-
-                    if (!string.IsNullOrEmpty(targetDbPass))
-                    {
-                        AppendLog("🔍 Đang kiểm tra kết nối Database...", colorText);
-                        string checkDbConfig = "{\"host\":\"localhost\",\"name\":\"" + targetDbName.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
-                                               "\",\"user\":\"" + targetDbUser.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
-                                               "\",\"pass\":\"" + targetDbPass.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
-                        string checkPostData = "db_config=" + Uri.EscapeDataString(checkDbConfig);
-                        string checkRes = PostHttp(checkDbUrl, checkPostData);
-                        
-                        if (!string.IsNullOrEmpty(checkRes) && checkRes.Contains("\"status\":\"success\""))
-                        {
-                            dbCheckSuccess = true;
-                            dbHasData = checkRes.Contains("\"has_data\":true");
-                            finalDbPass = targetDbPass;
-                            AppendLog("✅ Kết nối Database thành công.", colorGreen);
-                        }
-                        else
-                        {
-                            AppendLog("⚠️ Kết nối Database thất bại: " + (checkRes ?? "không phản hồi"), Color.FromArgb(245, 158, 11));
-                        }
-                    }
-
-                    if (!dbCheckSuccess)
-                    {
-                        // Wrong password or env doesn't have it
-                        AppendLog("🔑 Cấu hình sai mật khẩu hoặc chưa có Database. Tiến hành tự động đồng bộ lại mật khẩu...", Color.FromArgb(245, 158, 11));
-                        
-                        string passwordToSet = "";
-                        if (!string.IsNullOrEmpty(envDbPass))
-                        {
-                            passwordToSet = envDbPass;
-                            AppendLog("👉 Lấy mật khẩu cũ từ file .env: " + passwordToSet, colorDim);
-                        }
-                        else
-                        {
-                            passwordToSet = GenerateRandomDbPass();
-                            AppendLog("👉 File .env không có mật khẩu, tự random mật khẩu mới: " + passwordToSet, colorDim);
-                        }
-
-                        // Create database / sync password via DirectAdmin API
-                        if (!onlyDb)
-                        {
-                            AppendLog("🛠️ Đang khởi tạo/đồng bộ Database trên DirectAdmin...", colorText);
-                            string dbPostData = "action=create&name=" + Uri.EscapeDataString(dbSuffix) + 
-                                               "&user=" + Uri.EscapeDataString(dbSuffix) + 
-                                               "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
-                                               "&passwd2=" + Uri.EscapeDataString(passwordToSet) + 
-                                               "&create=Create";
-                            
-                            AppendLog("  DA API: Gửi yêu cầu tạo database " + finalDbName + "...", colorDim);
-                            string daRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbPostData);
-                            string decodedDaRes = Uri.UnescapeDataString(daRes);
-                            bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
-                                                    decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0;
-
-                            if (isAlreadyExists)
-                            {
-                                AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
-                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
-                                                         "&user=" + Uri.EscapeDataString(targetDbUser) + 
-                                                         "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
-                                                         "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
-                                string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
-                                if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
-                                {
-                                    AppendLog("❌ DA API Lỗi đồng bộ password: " + decodedDaPassRes, colorRed);
-                                }
-                                else
-                                {
-                                    AppendLog("✅ DA API: Đồng bộ password thành công.", colorGreen);
-                                }
-                            }
-                            else if (decodedDaRes.IndexOf("error=1", StringComparison.OrdinalIgnoreCase) >= 0 && decodedDaRes.IndexOf("exists", StringComparison.OrdinalIgnoreCase) < 0)
-                            {
-                                AppendLog("⚠️ DA API Cảnh báo: " + decodedDaRes, Color.FromArgb(245, 158, 11));
-                            }
-                            else
-                            {
-                                AppendLog("✅ DA API: Tạo Database thành công.", colorGreen);
-                            }
-                        }
-                        else
-                        {
-                            // onlyDb is true, but password is wrong: sync password only
-                            if (string.IsNullOrEmpty(targetDbUser) || targetDbUser == "root")
-                            {
-                                AppendLog("⚠️ User database là 'root' hoặc trống (không hợp lệ trên hosting). Bỏ qua đổi mật khẩu qua DirectAdmin API.", Color.FromArgb(245, 158, 11));
-                            }
-                            else
-                            {
-                                AppendLog("  DA API: Đang đổi mật khẩu của user \"" + targetDbUser + "\" thành mật khẩu đồng bộ...", colorDim);
-                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
-                                                         "&user=" + Uri.EscapeDataString(targetDbUser) + 
-                                                         "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
-                                                         "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
-                                string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
-                                if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
-                                {
-                                    AppendLog("❌ DA API Lỗi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
-                                }
-                                else
-                                {
-                                    AppendLog("✅ DA API: Đổi mật khẩu Database thành công.", colorGreen);
-                                }
-                            }
-                        }
-
-                        finalDbPass = passwordToSet;
-
-                        // Sync back to .env if env password is missing or different
-                        if (string.IsNullOrEmpty(envDbPass) || envDbPass != passwordToSet)
-                        {
-                            try
-                            {
-                                string remoteEnvTemp2 = Path.Combine(tempDir, "remote_env_write_" + jobId);
-                                string remoteEnvUrl2 = ftpBase + ".env";
-                                string ftpErr2;
-                                List<string> envLines = new List<string>();
-                                if (DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2) && File.Exists(remoteEnvTemp2))
-                                {
-                                    envLines.AddRange(File.ReadAllLines(remoteEnvTemp2));
-                                    File.Delete(remoteEnvTemp2);
-                                }
-                                
-                                bool updated = false;
-                                for (int i = 0; i < envLines.Count; i++)
-                                {
-                                    if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
-                                    {
-                                        string keyName = envLines[i].Split('=')[0].Trim();
-                                        envLines[i] = keyName + "=" + passwordToSet;
-                                        updated = true;
-                                    }
-                                }
-                                if (!updated)
-                                {
-                                    envLines.Add("DB_PASSWORD=" + passwordToSet);
-                                }
-                                
-                                File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
-                                UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
-                                File.Delete(remoteEnvTemp2);
-                                AppendLog("✅ Đã cập nhật mật khẩu mới vào file .env trên hosting.", colorGreen);
-                            }
-                            catch (Exception ex)
-                            {
-                                AppendLog("⚠️ Thất bại khi cập nhật file .env: " + ex.Message, Color.FromArgb(245, 158, 11));
-                            }
-                        }
-
-                        // Check connection again after sync
-                        AppendLog("🔍 Đang kiểm tra lại kết nối Database...", colorText);
-                        string checkDbConfig2 = "{\"host\":\"localhost\",\"name\":\"" + targetDbName.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
-                                               "\",\"user\":\"" + targetDbUser.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
-                                               "\",\"pass\":\"" + finalDbPass.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
-                        string checkPostData2 = "db_config=" + Uri.EscapeDataString(checkDbConfig2);
-                        string checkRes2 = PostHttp(checkDbUrl, checkPostData2);
-                        if (!string.IsNullOrEmpty(checkRes2) && checkRes2.Contains("\"status\":\"success\""))
-                        {
-                            dbHasData = checkRes2.Contains("\"has_data\":true");
-                            AppendLog("✅ Kết nối Database thành công sau khi đồng bộ mật khẩu.", colorGreen);
-                        }
-                    }
-
-                    // Check if DB already has data and prompt user
-                    if (dbHasData)
-                    {
-                        DialogResult dialogRes = DialogResult.Cancel;
-                        this.Invoke((MethodInvoker)delegate {
-                            dialogRes = MessageBox.Show(
-                                "Database " + finalDbName + " đã có dữ liệu!\n\n- Chọn YES để: Xoá dữ liệu cũ và tiến hành import DB mới.\n- Chọn NO để: Giữ lại dữ liệu cũ (Không import DB) và tiếp tục các bước tiếp theo.\n- Chọn CANCEL để: Hủy bỏ tiến trình deploy.",
-                                "Database đã có dữ liệu",
-                                MessageBoxButtons.YesNoCancel,
-                                MessageBoxIcon.Question
-                            );
-                        });
-
-                        if (dialogRes == DialogResult.Yes)
-                        {
-                            clearDb = true;
-                            AppendLog("👉 Người dùng chọn: Xóa dữ liệu cũ và import database mới.", colorText);
-                        }
-                        else if (dialogRes == DialogResult.No)
-                        {
-                            skipImportDb = true;
-                            AppendLog("👉 Người dùng chọn: Giữ lại dữ liệu cũ (KHÔNG import DB).", colorText);
-                            if (File.Exists(sqlPath))
-                            {
-                                try { File.Delete(sqlPath); } catch { }
-                            }
-                        }
-                        else
-                        {
-                            AppendLog("❌ Tiến trình deploy đã bị hủy bởi người dùng.", colorRed);
-                            FinishDeploy(false);
-                            return;
-                        }
-                    }
-
-                    // Upload actual distribution package files
-                    AppendLog("☁️ Đang upload tệp tin nguồn lên FTP...", colorText);
-                    bool uploadOk = true;
-                    if (!onlyDb && File.Exists(zipPath))
-                    {
-                        AppendLog("  ↑ Uploading dist.zip...", colorDim);
-                        string uploadErrZip;
-                        if (!UploadFtp(ftpBase + "dist.zip", ftpCreds, zipPath, out uploadErrZip))
-                        {
-                            AppendLog("❌ Upload zip thất bại: " + uploadErrZip, colorRed);
-                            uploadOk = false;
-                        }
-                    }
-
-                    if (!skipImportDb && File.Exists(sqlPath))
-                    {
-                        AppendLog("  ↑ Uploading dist.sql...", colorDim);
-                        string uploadErrSql;
-                        if (!UploadFtp(ftpBase + "dist.sql", ftpCreds, sqlPath, out uploadErrSql))
-                        {
-                            AppendLog("⚠️ Upload SQL thất bại: " + uploadErrSql, Color.FromArgb(245, 158, 11));
-                        }
                     }
 
                     if (!uploadOk) { FinishDeploy(false); return; }
                     AppendLog("✅ Upload hoàn tất.", colorGreen);
 
-                    // Step 4: Trigger bridge to deploy/deployDb
+                    string finalDbName = "";
+                    string finalDbPass = "";
+
+                    if (!onlyDb)
+                    {
+                        // Step 3.5: Create Database via DirectAdmin API
+                        AppendLog("🛠️ Đang khởi tạo Database trên DirectAdmin...", colorText);
+                        string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
+                        string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                        finalDbName = mainUser + "_" + dbSuffix;
+                        finalDbPass = GenerateRandomDbPass(); // Generate random letter-only password
+
+                        string dbPostData = "action=create&name=" + Uri.EscapeDataString(dbSuffix) + 
+                                           "&user=" + Uri.EscapeDataString(dbSuffix) + 
+                                           "&passwd=" + Uri.EscapeDataString(finalDbPass) + 
+                                           "&passwd2=" + Uri.EscapeDataString(finalDbPass) + 
+                                           "&create=Create";
+                        
+                        AppendLog("  DA API: Gửi yêu cầu tạo database " + finalDbName + "...", colorDim);
+                        string daRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbPostData);
+                        string decodedDaRes = Uri.UnescapeDataString(daRes);
+                        bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                                                decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                        if (isAlreadyExists)
+                        {
+                            AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
+                            string dbModifyPostData = "action=passwd&db=" + Uri.EscapeDataString(finalDbName) + 
+                                                     "&user=" + Uri.EscapeDataString(finalDbName) + 
+                                                     "&passwd=" + Uri.EscapeDataString(finalDbPass) + 
+                                                     "&passwd2=" + Uri.EscapeDataString(finalDbPass);
+                            CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData);
+                            AppendLog("✅ DA API: Đồng bộ password thành công.", colorGreen);
+                        }
+                        else if (decodedDaRes.IndexOf("error=1", StringComparison.OrdinalIgnoreCase) >= 0 && decodedDaRes.IndexOf("exists", StringComparison.OrdinalIgnoreCase) < 0)
+                        {
+                            AppendLog("⚠️ DA API Cảnh báo: " + decodedDaRes, Color.FromArgb(245, 158, 11));
+                        }
+                        else
+                        {
+                            AppendLog("✅ DA API: Tạo Database thành công.", colorGreen);
+                        }
+                    }
+                    else
+                    {
+                        AppendLog("♻️ Chỉ cập nhật database: Bỏ qua bước tạo DB DirectAdmin.", colorDim);
+                    }
+
+                    // Step 4: Trigger bridge
+                    string scheme = useSSL ? "https://" : "http://";
+                    string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
                     string bridgeUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=" + (onlyDb ? "deployDb" : "deploy");
                     string postData = "";
 
                     if (onlyDb)
                     {
                         AppendLog("⚡ Đang kích hoạt bridge để tự đọc .env và cập nhật database...", colorText);
-                        postData = "clear_db=" + (clearDb ? "1" : "0");
                     }
                     else
                     {
@@ -9688,12 +9987,134 @@ $cfg['SendErrorReports']              = 'never';
 
                         string dbConfig = "{\"host\":\"localhost\",\"name\":\"" + safeDbName + "\",\"user\":\"" + safeDbName + "\",\"pass\":\"" + safeDbPass + "\"}";
                         string appConfig = "{\"app_url\":\"" + safeAppUrl + "\",\"ssl\":" + (useSSL ? "true" : "false") + ",\"skip_lock\":true}";
-                        postData = "db_config=" + Uri.EscapeDataString(dbConfig) + 
-                                   "&app_config=" + Uri.EscapeDataString(appConfig) + 
-                                   "&clear_db=" + (clearDb ? "1" : "0");
+                        postData = "db_config=" + Uri.EscapeDataString(dbConfig) + "&app_config=" + Uri.EscapeDataString(appConfig);
                     }
 
+                    AppendLog("  Bridge URL: " + bridgeUrl, colorDim);
                     string bridgeRes = PostHttp(bridgeUrl, postData);
+
+                    // Auto-detect password error and retry
+                    if (!string.IsNullOrEmpty(bridgeRes) && 
+                        (bridgeRes.Contains("Access denied") || 
+                         bridgeRes.Contains("using password") || 
+                         bridgeRes.Contains("1045") ||
+                         bridgeRes.Contains("PDO Error") ||
+                         bridgeRes.Contains("sai mật khẩu")))
+                    {
+                        AppendLog("🔑 Phát hiện lỗi sai mật khẩu Database. Tiến hành tự động đồng bộ lại mật khẩu...", Color.FromArgb(245, 158, 11));
+                        try
+                        {
+                            if (string.IsNullOrEmpty(finalDbName))
+                            {
+                                string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
+                                string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                                finalDbName = mainUser + "_" + dbSuffix;
+                            }
+
+                            string passwordToSet = "";
+                            if (!string.IsNullOrEmpty(dbPass) && dbPass != "root" && dbPass != "123456" && dbPass != "12345678")
+                            {
+                                passwordToSet = dbPass;
+                            }
+                            else
+                            {
+                                // Download remote .env to read current password
+                                string remoteEnvTemp = Path.Combine(tempDir, "remote_env_" + jobId);
+                                string remoteEnvUrl = ftpBase + ".env";
+                                string ftpErr;
+                                if (DownloadFtp(remoteEnvUrl, ftpCreds, remoteEnvTemp, out ftpErr))
+                                {
+                                    if (File.Exists(remoteEnvTemp))
+                                    {
+                                        foreach (string line in File.ReadAllLines(remoteEnvTemp))
+                                        {
+                                            string trimmed = line.Trim();
+                                            if (string.IsNullOrEmpty(trimmed) || trimmed.StartsWith("#")) continue;
+                                            int idx = trimmed.IndexOf('=');
+                                            if (idx <= 0) continue;
+                                            string key = trimmed.Substring(0, idx).Trim().ToUpper();
+                                            string val = trimmed.Substring(idx + 1).Trim().Trim('"', '\'');
+                                            if (key == "DB_PASSWORD" || key == "DB_PASS")
+                                            {
+                                                passwordToSet = val;
+                                                break;
+                                            }
+                                        }
+                                        File.Delete(remoteEnvTemp);
+                                    }
+                                }
+                            }
+
+                            if (string.IsNullOrEmpty(passwordToSet))
+                            {
+                                passwordToSet = finalDbPass;
+                            }
+                            if (string.IsNullOrEmpty(passwordToSet))
+                            {
+                                passwordToSet = GenerateRandomDbPass();
+                            }
+
+                            AppendLog("  DA API: Đang đổi mật khẩu của user \"" + finalDbName + "\" thành \"" + passwordToSet + "\"...", colorDim);
+                            string mainUserDA = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                            string dbModifyPostData = "action=passwd&db=" + Uri.EscapeDataString(finalDbName) + 
+                                                     "&user=" + Uri.EscapeDataString(finalDbName) + 
+                                                     "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
+                                                     "&passwd2=" + Uri.EscapeDataString(passwordToSet);
+                            CallDirectAdminDbApi(ftpHost, daPort, mainUserDA, ftpPass, dbModifyPostData);
+                            AppendLog("✅ DA API: Đổi mật khẩu Database thành công.", colorGreen);
+
+                            // Update remote .env via FTP
+                            string remoteEnvTemp2 = Path.Combine(tempDir, "remote_env_" + jobId);
+                            string remoteEnvUrl2 = ftpBase + ".env";
+                            string ftpErr2;
+                            DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                            
+                            List<string> envLines = new List<string>();
+                            if (File.Exists(remoteEnvTemp2))
+                            {
+                                envLines.AddRange(File.ReadAllLines(remoteEnvTemp2));
+                                File.Delete(remoteEnvTemp2);
+                            }
+                            
+                            bool updated = false;
+                            for (int i = 0; i < envLines.Count; i++)
+                            {
+                                if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
+                                {
+                                    string keyName = envLines[i].Split('=')[0].Trim();
+                                    envLines[i] = keyName + "=" + passwordToSet;
+                                    updated = true;
+                                }
+                            }
+                            if (!updated)
+                            {
+                                envLines.Add("DB_PASSWORD=" + passwordToSet);
+                            }
+                            
+                            File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
+                            UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                            File.Delete(remoteEnvTemp2);
+                            AppendLog("✅ Đã cập nhật đồng bộ mật khẩu mới vào file .env trên hosting.", colorGreen);
+
+                            if (!onlyDb)
+                            {
+                                string safeDbName = finalDbName.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                                string safeDbPass = passwordToSet.Replace("\\", "\\\\").Replace("\"", "\\\"");
+                                string safeAppUrl = (scheme + webDomain + "/" + relWebPath).Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+                                string dbConfig = "{\"host\":\"localhost\",\"name\":\"" + safeDbName + "\",\"user\":\"" + safeDbName + "\",\"pass\":\"" + safeDbPass + "\"}";
+                                string appConfig = "{\"app_url\":\"" + safeAppUrl + "\",\"ssl\":" + (useSSL ? "true" : "false") + ",\"skip_lock\":true}";
+                                postData = "db_config=" + Uri.EscapeDataString(dbConfig) + "&app_config=" + Uri.EscapeDataString(appConfig);
+                            }
+
+                            AppendLog("⚡ Đang kích hoạt lại bridge và tiến hành import lại Database...", colorText);
+                            bridgeRes = PostHttp(bridgeUrl, postData);
+                        }
+                        catch (Exception ex)
+                        {
+                            AppendLog("⚠️ Thất bại khi tự động đổi mật khẩu: " + ex.Message, Color.FromArgb(245, 158, 11));
+                        }
+                    }
 
                     if (!string.IsNullOrEmpty(bridgeRes) && bridgeRes.Contains("\"status\":\"success\""))
                     {
@@ -9712,8 +10133,8 @@ $cfg['SendErrorReports']              = 'never';
                             AppendLog("⚠️ Cảnh báo tự dọn dẹp: " + (cleanupRes ?? "(không phản hồi)"), Color.FromArgb(245, 158, 11));
                         }
 
-                        _deployedUrl = scheme + webDomain + "/" + relWebPath + "/";
                         AppendLog(onlyDb ? "🎉 Cập nhật database thành công!" : "🎉 Deploy Demo thành công!", colorPurple);
+                        AppendLog("🔗 Demo URL: " + scheme + webDomain + "/" + relWebPath + "/", colorGreen);
                         FinishDeploy(true);
                     }
                     else
@@ -9771,11 +10192,13 @@ $cfg['SendErrorReports']              = 'never';
                     string scheme = useSSL ? "https://" : "http://";
                     string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
                     string cleanupUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=cleanup";
+                    
+                    AppendLog("  Gửi yêu cầu tự hủy tới: " + cleanupUrl, colorDim);
                     string res = PostHttp(cleanupUrl, "");
                     
-                    if ((!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\"")) || (res != null && res.Contains("404")))
+                    if (!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\""))
                     {
-                        AppendLog("✅ Dọn dẹp thành công! File bridge.php đã tự hủy hoặc không tồn tại trên hosting.", colorGreen);
+                        AppendLog("✅ Dọn dẹp thành công! Đã xóa dist.zip, dist.sql và tự hủy bridge.php.", colorGreen);
                         this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate {
                             _lblApiStatus.Text = "Dọn dẹp thành công!";
                             _lblApiStatus.ForeColor = colorGreen;
@@ -9843,33 +10266,19 @@ $cfg['SendErrorReports']              = 'never';
                 this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate { FinishDeploy(success); });
                 return;
             }
+            _btnDeploy.Enabled = true;
+            _btnDeployFresh.Enabled = true;
             _btnCleanup.Enabled = true;
             if (success)
             {
-                _isLocked = true;
                 SetDeployed(_projectDir, true);
-                UpdateDeployButtonsState();
                 _lblApiStatus.Text = "Deploy thành công!";
                 _lblApiStatus.ForeColor = colorGreen;
-
-                if (_btnOpenWeb != null)
-                {
-                    _btnOpenWeb.Visible = true;
-                    _btnDeploy.Visible = false;
-                }
             }
             else
             {
-                _btnDeploy.Enabled = true;
-                _btnDeployFresh.Enabled = true;
                 _lblApiStatus.Text = "Có lỗi xảy ra, xem log.";
                 _lblApiStatus.ForeColor = colorRed;
-
-                if (_btnOpenWeb != null)
-                {
-                    _btnOpenWeb.Visible = false;
-                    _btnDeploy.Visible = true;
-                }
             }
         }
 
@@ -9994,13 +10403,13 @@ $cfg['SendErrorReports']              = 'never';
             } catch (Exception ex) { return "error: " + ex.Message; }
         }
 
-        private string CallDirectAdminDbApi(string host, string port, string user, string pass, string postData, string endpoint = "CMD_API_DATABASES")
+        private string CallDirectAdminDbApi(string host, string port, string user, string pass, string postData)
         {
-            string url = "https://" + host + ":" + port + "/" + endpoint;
+            string url = "https://" + host + ":" + port + "/CMD_API_DATABASES";
             string res = PostHttpWithAuth(url, postData, user, pass);
             if (res.Contains("error") || res.Contains("wrong version number") || res.Contains("The underlying connection was closed") || res.Contains("timed out") || res.Contains("Server Certificate"))
             {
-                url = "http://" + host + ":" + port + "/" + endpoint;
+                url = "http://" + host + ":" + port + "/CMD_API_DATABASES";
                 res = PostHttpWithAuth(url, postData, user, pass);
             }
             return res;
@@ -10068,6 +10477,8 @@ $cfg['SendErrorReports']              = 'never';
             } catch { }
         }
 
+        // (Moved virtual host helper configurations to MainForm)
+
         public static bool IsDeployed(string projectDir)
         {
             try {
@@ -10134,7 +10545,7 @@ $cfg['SendErrorReports']              = 'never';
             } catch { }
         }
 
-        private static Dictionary<string, string> ParseJson(string json)
+        public static Dictionary<string, string> ParseJson(string json)
         {
             var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(json)) return dict;
@@ -10148,7 +10559,7 @@ $cfg['SendErrorReports']              = 'never';
             return dict;
         }
 
-        private static string SerializeJson(Dictionary<string, string> dict)
+        public static string SerializeJson(Dictionary<string, string> dict)
         {
             var sb = new System.Text.StringBuilder();
             sb.Append("{\n");
