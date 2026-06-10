@@ -7741,7 +7741,7 @@ $cfg['SendErrorReports']              = 'never';
                             GetVHostConfig(relativeSitePath, folderName, out vhostEnabled, out vhostDomain, out vhostUseSsl);
 
                             bool isSiteRoot = isRoot || vhostEnabled;
-                            string expectedVal = isSiteRoot ? "" : "/" + relativeSitePath.TrimEnd('/') + "/";
+                            string expectedVal = isSiteRoot ? "/" : "/" + relativeSitePath.TrimEnd('/') + "/";
 
                             string[] lines = File.ReadAllLines(envPath);
                             string currentUrl = "";
