@@ -10061,7 +10061,7 @@ $cfg['SendErrorReports']              = 'never';
 
                     // Step 3: Upload via curl FTP
                     AppendLog("☁️ Đang upload lên FTP...", colorText);
-                    string ftpBase = "ftp://" + ftpHost + "/" + ftpRoot.TrimStart('/') + "/" + sitePath.Replace('\\', '/').TrimStart('/') + "/";
+                    string ftpBase = "ftp://" + ftpHost + "/" + (ftpRoot.TrimStart('/') + "/" + sitePath.Replace('\\', '/').TrimStart('/')).Replace("//", "/").TrimEnd('/') + "/";
                     string ftpCreds = ftpUser + ":" + ftpPass;
 
                     bool uploadOk = true;
