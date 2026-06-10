@@ -9654,21 +9654,30 @@ $cfg['SendErrorReports']              = 'never';
             } catch { }
         }
 
-        private static void SafeCreateZipFromDirectory(string sourceDir, string zipPath, System.IO.Compression.CompressionLevel level)
+        private static void SafeCreateZipFromDirectory(string sourceDir, string zipPath, System.IO.Compression.CompressionLevel level, Action<long, long, int, int> progressCallback = null)
         {
             if (File.Exists(zipPath)) File.Delete(zipPath);
             
+            var di = new DirectoryInfo(sourceDir);
+            var files = di.GetFiles("*", SearchOption.AllDirectories);
+            int totalFiles = files.Length;
+            long totalBytes = 0;
+            foreach (var f in files) totalBytes += f.Length;
+
             using (var zipStream = new FileStream(zipPath, FileMode.Create))
             using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create))
             {
-                var di = new DirectoryInfo(sourceDir);
                 int stripLength = di.FullName.Length;
                 if (!di.FullName.EndsWith(Path.DirectorySeparatorChar.ToString()))
                 {
                     stripLength++;
                 }
 
-                foreach (var file in di.GetFiles("*", SearchOption.AllDirectories))
+                long processedBytes = 0;
+                int processedFiles = 0;
+                DateTime lastLogTime = DateTime.MinValue;
+
+                foreach (var file in files)
                 {
                     string relativePath = file.FullName.Substring(stripLength);
                     string entryName = relativePath.Replace('\\', '/');
@@ -9678,6 +9687,15 @@ $cfg['SendErrorReports']              = 'never';
                     using (var fileStream = file.OpenRead())
                     {
                         fileStream.CopyTo(entryStream);
+                    }
+
+                    processedBytes += file.Length;
+                    processedFiles++;
+
+                    if (progressCallback != null && ((DateTime.Now - lastLogTime).TotalMilliseconds > 300 || processedFiles == totalFiles))
+                    {
+                        progressCallback(processedBytes, totalBytes, processedFiles, totalFiles);
+                        lastLogTime = DateTime.Now;
                     }
                 }
 
@@ -9767,6 +9785,24 @@ $cfg['SendErrorReports']              = 'never';
                                 proc.StartInfo.RedirectStandardOutput = true;
                                 
                                 proc.Start();
+                                
+                                // Poll zip size on disk while 7z is running to show progress
+                                while (!proc.HasExited)
+                                {
+                                    System.Threading.Thread.Sleep(300);
+                                    if (File.Exists(zipPath))
+                                    {
+                                        try
+                                        {
+                                            long len = new FileInfo(zipPath).Length;
+                                            if (len > 0)
+                                            {
+                                                AppendLog(string.Format("   -> Dung lượng file nén: {0:N2} MB...", len / 1024.0 / 1024.0), colorDim);
+                                            }
+                                        }
+                                        catch { }
+                                    }
+                                }
                                 proc.WaitForExit();
                                 
                                 if (proc.ExitCode != 0)
@@ -9786,7 +9822,16 @@ $cfg['SendErrorReports']              = 'never';
                             }
                             AppendLog("📦 Đang nén mã nguồn bằng C# mặc định...", colorText);
                             if (File.Exists(zipPath)) File.Delete(zipPath);
-                            SafeCreateZipFromDirectory(_projectDir, zipPath, System.IO.Compression.CompressionLevel.Fastest);
+                            
+                            SafeCreateZipFromDirectory(_projectDir, zipPath, System.IO.Compression.CompressionLevel.Fastest, (bytes, totalBytes, files, totalFiles) => {
+                                string msg = string.Format("   -> Tiến trình nén: {0}/{1} tệp ({2:N2} MB / {3:N2} MB)...", 
+                                    files, 
+                                    totalFiles,
+                                    bytes / 1024.0 / 1024.0, 
+                                    totalBytes / 1024.0 / 1024.0);
+                                AppendLog(msg, colorDim);
+                            });
+                            
                             AppendLog("✅ Nén xong: " + Math.Round(new FileInfo(zipPath).Length / 1024.0 / 1024.0, 2) + " MB", colorGreen);
                         }
                     }
@@ -10122,6 +10167,8 @@ $cfg['SendErrorReports']              = 'never';
                         }
                     }
 
+                    PrintBridgeLogs(bridgeRes);
+
                     if (!string.IsNullOrEmpty(bridgeRes) && bridgeRes.Contains("\"status\":\"success\""))
                     {
                         AppendLog("✅ Bridge hoàn thành!", colorGreen);
@@ -10263,6 +10310,27 @@ $cfg['SendErrorReports']              = 'never';
             string name = cleanBase.Length > 10 ? cleanBase.Substring(0, 10) : cleanBase;
             string suffix = prefix + name;
             return suffix.Length > 13 ? suffix.Substring(0, 13) : suffix;
+        }
+
+        private void PrintBridgeLogs(string bridgeRes)
+        {
+            if (string.IsNullOrEmpty(bridgeRes)) return;
+            try
+            {
+                var matchLogs = System.Text.RegularExpressions.Regex.Match(bridgeRes, @"""logs""\s*:\s*\[(.*?)\]", System.Text.RegularExpressions.RegexOptions.Singleline);
+                if (matchLogs.Success)
+                {
+                    string logsContent = matchLogs.Groups[1].Value;
+                    var logMatches = System.Text.RegularExpressions.Regex.Matches(logsContent, @"""(.*?)""");
+                    foreach (System.Text.RegularExpressions.Match lm in logMatches)
+                    {
+                        string logLine = lm.Groups[1].Value;
+                        logLine = logLine.Replace("\\/", "/").Replace("\\\\", "\\").Replace("\\\"", "\"");
+                        AppendLog("  [Server] " + logLine, colorDim);
+                    }
+                }
+            }
+            catch { }
         }
 
         private void FinishDeploy(bool success)

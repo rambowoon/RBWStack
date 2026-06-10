@@ -142,13 +142,29 @@ class RamboWoonBridge
             $results[] = "Extracting package (" . filesize($zipFile) . " bytes)...";
             $unzipped = false;
 
+            // Read zip metadata for progress reporting
+            $totalFiles = 0;
+            $uncompressedSize = 0;
+            if (class_exists('ZipArchive')) {
+                $zipMeta = new ZipArchive();
+                if ($zipMeta->open($zipFile) === TRUE) {
+                    $totalFiles = $zipMeta->numFiles;
+                    for ($i = 0; $i < $totalFiles; $i++) {
+                        $stat = $zipMeta->statIndex($i);
+                        $uncompressedSize += $stat['size'];
+                    }
+                    $zipMeta->close();
+                }
+            }
+
             // Method 1: System Unzip (Fastest)
             $unzipped = false;
             if (function_exists('exec')) {
                 @exec("unzip -o $zipFile -d .", $output, $returnVar);
                 if (isset($returnVar) && $returnVar === 0) {
                     $unzipped = true;
-                    $results[] = "Package extracted via system unzip.";
+                    $extractedFiles = is_array($output) ? count($output) : $totalFiles;
+                    $results[] = "Package extracted via system unzip: $extractedFiles entries. Total size: " . round($uncompressedSize / 1024 / 1024, 2) . " MB";
                 }
             }
 
@@ -159,7 +175,7 @@ class RamboWoonBridge
                     if ($zip->open($zipFile) === TRUE) {
                         if ($zip->extractTo('.')) {
                             $unzipped = true;
-                            $results[] = "Package extracted via PHP ZipArchive.";
+                            $results[] = "Package extracted via PHP ZipArchive: $totalFiles files. Total size: " . round($uncompressedSize / 1024 / 1024, 2) . " MB";
                         }
                         $zip->close();
                     }
