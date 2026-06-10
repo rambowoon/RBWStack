@@ -9654,21 +9654,141 @@ $cfg['SendErrorReports']              = 'never';
             } catch { }
         }
 
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        private struct WIN32_FIND_DATA
+        {
+            public uint dwFileAttributes;
+            public System.Runtime.InteropServices.ComTypes.FILETIME ftCreationTime;
+            public System.Runtime.InteropServices.ComTypes.FILETIME ftLastAccessTime;
+            public System.Runtime.InteropServices.ComTypes.FILETIME ftLastWriteTime;
+            public uint nFileSizeHigh;
+            public uint nFileSizeLow;
+            public uint dwReserved0;
+            public uint dwReserved1;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
+            public string cFileName;
+            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 14)]
+            public string cAlternateFileName;
+        }
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern IntPtr FindFirstFile(string lpFileName, out WIN32_FIND_DATA lpFindFileData);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern bool FindNextFile(IntPtr hFindFile, out WIN32_FIND_DATA lpFindFileData);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool FindClose(IntPtr hFindFile);
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern Microsoft.Win32.SafeHandles.SafeFileHandle CreateFile(
+            string lpFileName,
+            uint dwDesiredAccess,
+            uint dwShareMode,
+            IntPtr lpSecurityAttributes,
+            uint dwCreationDisposition,
+            uint dwFlagsAndAttributes,
+            IntPtr hTemplateFile);
+
+        private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
+
+        private static void GetFilesAndDirsLongPath(string dir, List<string> fileList, List<string> dirList)
+        {
+            string searchPath = dir;
+            if (!searchPath.StartsWith(@"\\?\"))
+            {
+                searchPath = @"\\?\" + Path.GetFullPath(searchPath);
+            }
+            searchPath = searchPath.TrimEnd('\\') + @"\*";
+
+            WIN32_FIND_DATA findData;
+            IntPtr hFind = FindFirstFile(searchPath, out findData);
+            if (hFind != INVALID_HANDLE_VALUE)
+            {
+                try
+                {
+                    do
+                    {
+                        if (findData.cFileName == "." || findData.cFileName == "..")
+                            continue;
+
+                        string fullPath = Path.Combine(dir, findData.cFileName);
+                        bool isDir = (findData.dwFileAttributes & 0x10) != 0; // FILE_ATTRIBUTE_DIRECTORY
+
+                        if (isDir)
+                        {
+                            dirList.Add(fullPath);
+                            GetFilesAndDirsLongPath(fullPath, fileList, dirList);
+                        }
+                        else
+                        {
+                            fileList.Add(fullPath);
+                        }
+                    } while (FindNextFile(hFind, out findData));
+                }
+                finally
+                {
+                    FindClose(hFind);
+                }
+            }
+        }
+
+        private static FileStream OpenFileLongPath(string filePath)
+        {
+            string longPath = filePath;
+            if (!longPath.StartsWith(@"\\?\"))
+            {
+                longPath = @"\\?\" + Path.GetFullPath(longPath);
+            }
+
+            Microsoft.Win32.SafeHandles.SafeFileHandle handle = CreateFile(
+                longPath,
+                0x80000000, // GENERIC_READ
+                1,          // FILE_SHARE_READ
+                IntPtr.Zero,
+                3,          // OPEN_EXISTING
+                0,
+                IntPtr.Zero);
+
+            if (handle.IsInvalid)
+            {
+                throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+            }
+
+            return new FileStream(handle, FileAccess.Read);
+        }
+
         private static void SafeCreateZipFromDirectory(string sourceDir, string zipPath, System.IO.Compression.CompressionLevel level, Action<long, long, int, int> progressCallback = null)
         {
             if (File.Exists(zipPath)) File.Delete(zipPath);
             
-            var di = new DirectoryInfo(sourceDir);
-            var files = di.GetFiles("*", SearchOption.AllDirectories);
-            int totalFiles = files.Length;
+            List<string> files = new List<string>();
+            List<string> dirs = new List<string>();
+            GetFilesAndDirsLongPath(sourceDir, files, dirs);
+            
+            int totalFiles = files.Count;
             long totalBytes = 0;
-            foreach (var f in files) totalBytes += f.Length;
+            
+            foreach (var f in files)
+            {
+                try
+                {
+                    string longPath = f;
+                    if (!longPath.StartsWith(@"\\?\"))
+                    {
+                        longPath = @"\\?\" + Path.GetFullPath(longPath);
+                    }
+                    totalBytes += new FileInfo(longPath).Length;
+                }
+                catch { }
+            }
 
             using (var zipStream = new FileStream(zipPath, FileMode.Create))
             using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create))
             {
-                int stripLength = di.FullName.Length;
-                if (!di.FullName.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                string absSourceDir = Path.GetFullPath(sourceDir);
+                int stripLength = absSourceDir.Length;
+                if (!absSourceDir.EndsWith(Path.DirectorySeparatorChar.ToString()))
                 {
                     stripLength++;
                 }
@@ -9679,17 +9799,21 @@ $cfg['SendErrorReports']              = 'never';
 
                 foreach (var file in files)
                 {
-                    string relativePath = file.FullName.Substring(stripLength);
+                    string relativePath = file.Substring(stripLength);
                     string entryName = relativePath.Replace('\\', '/');
                     
                     var entry = archive.CreateEntry(entryName, level);
                     using (var entryStream = entry.Open())
-                    using (var fileStream = file.OpenRead())
+                    using (var fileStream = OpenFileLongPath(file))
                     {
                         fileStream.CopyTo(entryStream);
+                        try
+                        {
+                            processedBytes += fileStream.Length;
+                        }
+                        catch { }
                     }
 
-                    processedBytes += file.Length;
                     processedFiles++;
 
                     if (progressCallback != null && ((DateTime.Now - lastLogTime).TotalMilliseconds > 300 || processedFiles == totalFiles))
@@ -9699,11 +9823,33 @@ $cfg['SendErrorReports']              = 'never';
                     }
                 }
 
-                foreach (var dir in di.GetDirectories("*", SearchOption.AllDirectories))
+                foreach (var dir in dirs)
                 {
-                    if (dir.GetFileSystemInfos().Length == 0)
+                    bool hasContents = false;
+                    string dirWithSlash = dir.TrimEnd('\\') + "\\";
+                    foreach (var f in files)
                     {
-                        string relativePath = dir.FullName.Substring(stripLength);
+                        if (f.StartsWith(dirWithSlash, StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasContents = true;
+                            break;
+                        }
+                    }
+                    if (!hasContents)
+                    {
+                        foreach (var d in dirs)
+                        {
+                            if (d != dir && d.StartsWith(dirWithSlash, StringComparison.OrdinalIgnoreCase))
+                            {
+                                hasContents = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!hasContents)
+                    {
+                        string relativePath = dir.Substring(stripLength);
                         string entryName = relativePath.Replace('\\', '/') + "/";
                         archive.CreateEntry(entryName);
                     }
