@@ -1,10 +1,12 @@
 using System;
 using System.IO;
 using System.Net;
+using System.Net.Sockets;
 using System.Drawing;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Runtime.InteropServices;
 using System.IO.Compression;
@@ -2725,6 +2727,7 @@ $cfg['SendErrorReports']              = 'never';
     // Main Control Dashboard
     public class MainForm : Form
     {
+        public static MainForm Instance;
         private Color colorBg = Color.FromArgb(255, 255, 255); // Crisp white
         private Color colorSidebarBg = Color.FromArgb(249, 250, 251); // Soft light grey/zinc-50
         private Color colorCard = Color.FromArgb(255, 255, 255); // White cards
@@ -2873,6 +2876,7 @@ $cfg['SendErrorReports']              = 'never';
         private CheckBox chkAutoStart;
         private CheckBox chkMinimizeToTray;
         private CheckBox chkAutoOptimizePhpIni;
+        private CheckBox chkAdminVHostMode;
 
         [DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
@@ -2895,6 +2899,7 @@ $cfg['SendErrorReports']              = 'never';
 
         public MainForm()
         {
+            Instance = this;
             var forceHandle = this.Handle;
             restoreMessage = RegisterWindowMessage("RBWSTACK_RESTORE_INSTANCE");
 
@@ -3167,11 +3172,24 @@ $cfg['SendErrorReports']              = 'never';
             pnlSidebar.Controls.Add(btnTabDashboard);
 
             // Core Exposed Download Services
+            btnTabMail = new ModernButton();
+            btnTabMail.Text = "Mail Sandbox";
+            btnTabMail.IconGlyph = "\uE715"; // Mail envelope icon
+            btnTabMail.Size = new Size(198, 34);
+            btnTabMail.Location = new Point(1, 174);
+            btnTabMail.NormalColor = Color.Transparent;
+            btnTabMail.HoverColor = Color.FromArgb(243, 244, 246);
+            btnTabMail.PressedColor = Color.FromArgb(229, 231, 235);
+            btnTabMail.BorderColor = Color.Transparent;
+            btnTabMail.CornerRadius = 0;
+            btnTabMail.Click += (s, e) => SwitchToTab("mail");
+            pnlSidebar.Controls.Add(btnTabMail);
+
             btnTabPhpEngine = new ModernButton();
             btnTabPhpEngine.Text = "PHP Engine";
             btnTabPhpEngine.IconGlyph = "\uE943"; // Code block icon
             btnTabPhpEngine.Size = new Size(198, 34);
-            btnTabPhpEngine.Location = new Point(1, 174);
+            btnTabPhpEngine.Location = new Point(1, 212);
             btnTabPhpEngine.NormalColor = Color.Transparent;
             btnTabPhpEngine.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabPhpEngine.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3184,7 +3202,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabNode.Text = "Node.js Engine";
             btnTabNode.IconGlyph = "\uE9E9"; // Connection/ethernet
             btnTabNode.Size = new Size(198, 34);
-            btnTabNode.Location = new Point(1, 212);
+            btnTabNode.Location = new Point(1, 250);
             btnTabNode.NormalColor = Color.Transparent;
             btnTabNode.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabNode.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3197,7 +3215,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabApache.Text = "Apache Server";
             btnTabApache.IconGlyph = "\uE774"; // Globe
             btnTabApache.Size = new Size(198, 34);
-            btnTabApache.Location = new Point(1, 250);
+            btnTabApache.Location = new Point(1, 288);
             btnTabApache.NormalColor = Color.Transparent;
             btnTabApache.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabApache.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3210,7 +3228,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabNginx.Text = "Nginx Server";
             btnTabNginx.IconGlyph = "\uE700"; // Globe outline
             btnTabNginx.Size = new Size(198, 34);
-            btnTabNginx.Location = new Point(1, 288);
+            btnTabNginx.Location = new Point(1, 326);
             btnTabNginx.NormalColor = Color.Transparent;
             btnTabNginx.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabNginx.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3223,7 +3241,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabDatabase.Text = "Cơ sở dữ liệu";
             btnTabDatabase.IconGlyph = "\uEC27"; // Database cylinder
             btnTabDatabase.Size = new Size(198, 34);
-            btnTabDatabase.Location = new Point(1, 326);
+            btnTabDatabase.Location = new Point(1, 364);
             btnTabDatabase.NormalColor = Color.Transparent;
             btnTabDatabase.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabDatabase.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3236,7 +3254,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabPhpMyAdmin.Text = "phpMyAdmin";
             btnTabPhpMyAdmin.IconGlyph = "\uE12B"; // Database/Globe table
             btnTabPhpMyAdmin.Size = new Size(198, 34);
-            btnTabPhpMyAdmin.Location = new Point(1, 364);
+            btnTabPhpMyAdmin.Location = new Point(1, 402);
             btnTabPhpMyAdmin.NormalColor = Color.Transparent;
             btnTabPhpMyAdmin.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabPhpMyAdmin.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3249,7 +3267,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabVcRuntime.Text = "VC++ Runtime";
             btnTabVcRuntime.IconGlyph = "\uE8B7"; // Toolbox/wrench
             btnTabVcRuntime.Size = new Size(198, 34);
-            btnTabVcRuntime.Location = new Point(1, 402);
+            btnTabVcRuntime.Location = new Point(1, 440);
             btnTabVcRuntime.NormalColor = Color.Transparent;
             btnTabVcRuntime.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabVcRuntime.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3262,7 +3280,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabDownload.Text = "RBW Pro";
             btnTabDownload.IconGlyph = "\uE734"; // Star icon for Pro
             btnTabDownload.Size = new Size(198, 34);
-            btnTabDownload.Location = new Point(1, 440);
+            btnTabDownload.Location = new Point(1, 478);
             btnTabDownload.NormalColor = Color.Transparent;
             btnTabDownload.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabDownload.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3275,7 +3293,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabAbout.Text = "About";
             btnTabAbout.IconGlyph = "\uE946"; // Info Circle
             btnTabAbout.Size = new Size(198, 34);
-            btnTabAbout.Location = new Point(1, 478);
+            btnTabAbout.Location = new Point(1, 516);
             btnTabAbout.NormalColor = Color.Transparent;
             btnTabAbout.HoverColor = Color.FromArgb(243, 244, 246);
             btnTabAbout.PressedColor = Color.FromArgb(229, 231, 235);
@@ -3287,7 +3305,6 @@ $cfg['SendErrorReports']              = 'never';
             // Dummy initializations to prevent null reference compiler errors elsewhere
             btnTabExpose = new ModernButton();
             btnTabShortcuts = new ModernButton();
-            btnTabMail = new ModernButton();
             btnTabDumps = new ModernButton();
 
             // 2. Tab Panels bên phải (width 760)
@@ -4013,11 +4030,23 @@ $cfg['SendErrorReports']              = 'never';
             chkAutoOptimizePhpIni.FlatAppearance.BorderColor = dfNormalBorder;
             pnlSysBox.Controls.Add(chkAutoOptimizePhpIni);
 
+            chkAdminVHostMode = new CheckBox();
+            chkAdminVHostMode.Text = "Chạy quyền Admin (Sửa file hosts, đuôi .local)";
+            chkAdminVHostMode.ForeColor = Color.FromArgb(55, 65, 81);
+            chkAdminVHostMode.Font = new Font("Segoe UI", 9f);
+            chkAdminVHostMode.Location = new Point(20, 166);
+            chkAdminVHostMode.Size = new Size(305, 22);
+            chkAdminVHostMode.Checked = IsAdminVHostMode();
+            chkAdminVHostMode.FlatStyle = FlatStyle.Flat;
+            chkAdminVHostMode.FlatAppearance.BorderSize = 1;
+            chkAdminVHostMode.FlatAppearance.BorderColor = dfNormalBorder;
+            pnlSysBox.Controls.Add(chkAdminVHostMode);
+
             txtWebPort = new TextBox();
-            addCustomField(pnlSysBox, "Cổng Port Web Server", txtWebPort, "", 20, 178, 145, 30, null);
+            addCustomField(pnlSysBox, "Cổng Port Web Server", txtWebPort, "", 20, 196, 145, 30, null);
 
             txtVHostSuffix = new TextBox();
-            addCustomField(pnlSysBox, "Đuôi tên miền ảo", txtVHostSuffix, "vhost_suffix", 180, 178, 145, 30, v => {
+            addCustomField(pnlSysBox, "Đuôi tên miền ảo", txtVHostSuffix, "vhost_suffix", 180, 196, 145, 30, v => {
                 var c = DeployDemoForm.LoadGlobalConfig();
                 c["vhost_suffix"] = v;
                 DeployDemoForm.SaveGlobalConfig(c);
@@ -4025,11 +4054,11 @@ $cfg['SendErrorReports']              = 'never';
             if (string.IsNullOrEmpty(txtVHostSuffix.Text)) txtVHostSuffix.Text = "local";
 
             txtMySqlPort = new TextBox();
-            addCustomField(pnlSysBox, "Cổng Port MySQL / MariaDB", txtMySqlPort, "", 20, 238, 305, 30, null);
+            addCustomField(pnlSysBox, "Cổng Port MySQL / MariaDB", txtMySqlPort, "", 20, 250, 305, 30, null);
 
             txtPhpPort = new TextBox();
             txtPhpPort.ReadOnly = true;
-            addCustomField(pnlSysBox, "Cổng Port PHP-CGI (Chỉ đọc)", txtPhpPort, "", 20, 298, 305, 30, null);
+            addCustomField(pnlSysBox, "Cổng Port PHP-CGI (Chỉ đọc)", txtPhpPort, "", 20, 304, 305, 30, null);
 
             btnSaveSettings = new ModernButton();
             btnSaveSettings.Text = "Lưu cài đặt hệ thống";
@@ -4040,7 +4069,7 @@ $cfg['SendErrorReports']              = 'never';
             btnSaveSettings.BorderColor = Color.Transparent;
             btnSaveSettings.ForeColor = Color.White;
             btnSaveSettings.CornerRadius = 6;
-            btnSaveSettings.Location = new Point(20, 360);
+            btnSaveSettings.Location = new Point(20, 362);
             btnSaveSettings.Size = new Size(305, 36);
             btnSaveSettings.Click += (s, e) => {
                 SaveSettings_Click(null, null);
@@ -4108,6 +4137,130 @@ $cfg['SendErrorReports']              = 'never';
             pnlTabAbout.Paint += DrawTabPanelBorder;
             pnlTabAbout.Visible = false;
             this.Controls.Add(pnlTabAbout);
+
+            // TAB 4.5: MAIL SANDBOX PANEL
+            pnlTabMail = new Panel();
+            pnlTabMail.Size = new Size(tabW, tabH);
+            pnlTabMail.Location = tabLoc;
+            pnlTabMail.BackColor = colorBg;
+            pnlTabMail.Padding = new Padding(0, 0, 1, 1);
+            pnlTabMail.Paint += DrawTabPanelBorder;
+            pnlTabMail.Visible = false;
+            this.Controls.Add(pnlTabMail);
+
+            Panel pnlMailBox = new Panel();
+            pnlMailBox.Size = new Size(720, 510);
+            pnlMailBox.Location = new Point(20, 20);
+            pnlMailBox.BackColor = Color.White;
+            pnlMailBox.Paint += DrawCardBorder;
+            pnlTabMail.Controls.Add(pnlMailBox);
+            ApplyRoundedRegion(pnlMailBox, 12);
+
+            // Left panel for Mail List
+            Panel pnlMailLeft = new Panel();
+            pnlMailLeft.Size = new Size(260, 510);
+            pnlMailLeft.Location = new Point(0, 0);
+            pnlMailLeft.BackColor = Color.White;
+            pnlMailLeft.Paint += (s, pe) => {
+                using (Pen pen = new Pen(Color.FromArgb(241, 245, 249), 1.5f))
+                {
+                    pe.Graphics.DrawLine(pen, 259, 0, 259, pnlMailLeft.Height);
+                }
+            };
+            pnlMailBox.Controls.Add(pnlMailLeft);
+
+            // Top control bar in Left Panel
+            Label lblMailTitle = new Label();
+            lblMailTitle.Text = "Hộp thư";
+            lblMailTitle.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
+            lblMailTitle.ForeColor = Color.FromArgb(30, 41, 59); // Slate 800
+            lblMailTitle.Location = new Point(15, 12);
+            lblMailTitle.AutoSize = true;
+            pnlMailLeft.Controls.Add(lblMailTitle);
+
+            ModernButton btnClearMails = new ModernButton();
+            btnClearMails.Text = "Xóa hết";
+            btnClearMails.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            btnClearMails.Location = new Point(180, 12);
+            btnClearMails.Size = new Size(65, 24);
+            btnClearMails.NormalColor = Color.White;
+            btnClearMails.BorderColor = colorBorder;
+            btnClearMails.Click += (s, e) => {
+                if (MessageBox.Show("Bạn có chắc chắn muốn xóa toàn bộ email đã bắt được?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+                {
+                    SaveCaughtEmails(new List<CaughtEmail>());
+                    RefreshMailList();
+                }
+            };
+            pnlMailLeft.Controls.Add(btnClearMails);
+
+            // ListBox of mails
+            lstMailInbox = new ListBox();
+            lstMailInbox.Location = new Point(10, 50);
+            lstMailInbox.Size = new Size(240, 440);
+            lstMailInbox.BorderStyle = BorderStyle.None;
+            lstMailInbox.Font = new Font("Segoe UI", 9f);
+            lstMailInbox.ForeColor = colorText;
+            lstMailInbox.DrawMode = DrawMode.OwnerDrawFixed;
+            lstMailInbox.ItemHeight = 44;
+            lstMailInbox.DrawItem += LstMailInbox_DrawItem;
+            lstMailInbox.SelectedIndexChanged += LstMailInbox_SelectedIndexChanged;
+            pnlMailLeft.Controls.Add(lstMailInbox);
+
+            // Right panel for Mail Details
+            pnlMailDetail = new Panel();
+            pnlMailDetail.Size = new Size(720 - 260, 510);
+            pnlMailDetail.Location = new Point(260, 0);
+            pnlMailDetail.BackColor = Color.White;
+            pnlMailDetail.Visible = false;
+            pnlMailBox.Controls.Add(pnlMailDetail);
+
+            // Detail headers
+            lblMailSubject = new Label();
+            lblMailSubject.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+            lblMailSubject.ForeColor = Color.FromArgb(30, 41, 59);
+            lblMailSubject.Location = new Point(20, 15);
+            lblMailSubject.Size = new Size(410, 20);
+            pnlMailDetail.Controls.Add(lblMailSubject);
+
+            lblMailFrom = new Label();
+            lblMailFrom.Font = new Font("Segoe UI", 8.5f);
+            lblMailFrom.ForeColor = colorTextDim;
+            lblMailFrom.Location = new Point(20, 40);
+            lblMailFrom.Size = new Size(410, 15);
+            pnlMailDetail.Controls.Add(lblMailFrom);
+
+            lblMailTo = new Label();
+            lblMailTo.Font = new Font("Segoe UI", 8.5f);
+            lblMailTo.ForeColor = colorTextDim;
+            lblMailTo.Location = new Point(20, 58);
+            lblMailTo.Size = new Size(410, 15);
+            pnlMailDetail.Controls.Add(lblMailTo);
+
+            lblMailDate = new Label();
+            lblMailDate.Font = new Font("Segoe UI", 8f);
+            lblMailDate.ForeColor = colorTextDim;
+            lblMailDate.Location = new Point(20, 76);
+            lblMailDate.Size = new Size(410, 15);
+            pnlMailDetail.Controls.Add(lblMailDate);
+
+            // WebBrowser for Mail Body
+            webMailBody = new WebBrowser();
+            webMailBody.Location = new Point(20, 100);
+            webMailBody.Size = new Size(720 - 260 - 40, 390);
+            webMailBody.ScriptErrorsSuppressed = true;
+            webMailBody.AllowNavigation = false;
+            pnlMailDetail.Controls.Add(webMailBody);
+
+            // Empty state label for Right panel
+            lblMailEmpty = new Label();
+            lblMailEmpty.Text = "Chọn một email từ danh sách để xem chi tiết";
+            lblMailEmpty.Font = new Font("Segoe UI", 9.5f, FontStyle.Italic);
+            lblMailEmpty.ForeColor = colorTextDim;
+            lblMailEmpty.TextAlign = ContentAlignment.MiddleCenter;
+            lblMailEmpty.Size = new Size(720 - 260, 510);
+            lblMailEmpty.Location = new Point(260, 0);
+            pnlMailBox.Controls.Add(lblMailEmpty);
 
             Panel pnlAboutBox = new Panel();
             pnlAboutBox.Size = new Size(720, 420);
@@ -4234,6 +4387,7 @@ $cfg['SendErrorReports']              = 'never';
             pnlTabAbout.Visible = (tabName == "about");
             pnlTabPlaceholder.Visible = (tabName == "placeholder");
             pnlTabSites.Visible = (tabName == "sites");
+            if (pnlTabMail != null) pnlTabMail.Visible = (tabName == "mail");
 
             btnTabDashboard.IsSelected = (tabName == "dashboard");
             btnTabDownload.IsSelected = (tabName == "download");
@@ -4245,7 +4399,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabNode.IsSelected = false;
             btnTabExpose.IsSelected = false;
             btnTabShortcuts.IsSelected = false;
-            btnTabMail.IsSelected = false;
+            btnTabMail.IsSelected = (tabName == "mail");
             btnTabDumps.IsSelected = false;
 
             btnTabPhpEngine.IsSelected = false;
@@ -4260,7 +4414,6 @@ $cfg['SendErrorReports']              = 'never';
             else if (tabName == "placeholder_node") btnTabNode.IsSelected = true;
             else if (tabName == "placeholder_expose") btnTabExpose.IsSelected = true;
             else if (tabName == "placeholder_shortcuts") btnTabShortcuts.IsSelected = true;
-            else if (tabName == "placeholder_mail") btnTabMail.IsSelected = true;
             else if (tabName == "placeholder_dumps") btnTabDumps.IsSelected = true;
 
             if (tabName == "download")
@@ -4271,6 +4424,10 @@ $cfg['SendErrorReports']              = 'never';
             else if (tabName == "sites")
             {
                 RenderSitesList();
+            }
+            else if (tabName == "mail")
+            {
+                RefreshMailList();
             }
 
             // Trigger updates on visible components
@@ -4293,6 +4450,7 @@ $cfg['SendErrorReports']              = 'never';
             pnlTabAbout.Visible = false;
             pnlTabPlaceholder.Visible = false;
             if (pnlTabSites != null) pnlTabSites.Visible = false;
+            if (pnlTabMail != null) pnlTabMail.Visible = false;
 
             // Update selections
             btnTabDashboard.IsSelected = false;
@@ -4745,6 +4903,12 @@ $cfg['SendErrorReports']              = 'never';
             if (chkAutoOptimizePhpIni != null)
             {
                 SaveAutoOptimizePhpIniSetting(chkAutoOptimizePhpIni.Checked);
+            }
+            if (chkAdminVHostMode != null)
+            {
+                var c = DeployDemoForm.LoadGlobalConfig();
+                c["vhost_mode"] = chkAdminVHostMode.Checked ? "admin" : "normal";
+                DeployDemoForm.SaveGlobalConfig(c);
             }
 
             if (pnlSettingsOverlay != null)
@@ -5340,7 +5504,39 @@ $cfg['SendErrorReports']              = 'never';
                     }
                 }
 
-                if (modified)
+                // Enforce SMTP redirection to Mail Sandbox
+                bool smtpChanged = false;
+                if (Regex.IsMatch(content, @"SMTP\s*=", RegexOptions.IgnoreCase))
+                {
+                    string oldSMTP = Regex.Match(content, @"(?m)^;?\s*SMTP\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
+                    if (oldSMTP != "127.0.0.1")
+                    {
+                        content = Regex.Replace(content, @"(?m)^;?\s*SMTP\s*=.*$", "SMTP = 127.0.0.1", RegexOptions.IgnoreCase);
+                        smtpChanged = true;
+                    }
+                }
+                else
+                {
+                    content += "\r\nSMTP = 127.0.0.1\r\n";
+                    smtpChanged = true;
+                }
+
+                if (Regex.IsMatch(content, @"smtp_port\s*=", RegexOptions.IgnoreCase))
+                {
+                    string oldPort = Regex.Match(content, @"(?m)^;?\s*smtp_port\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
+                    if (oldPort != "1025")
+                    {
+                        content = Regex.Replace(content, @"(?m)^;?\s*smtp_port\s*=.*$", "smtp_port = 1025", RegexOptions.IgnoreCase);
+                        smtpChanged = true;
+                    }
+                }
+                else
+                {
+                    content += "\r\nsmtp_port = 1025\r\n";
+                    smtpChanged = true;
+                }
+
+                if (modified || smtpChanged)
                 {
                     File.WriteAllText(phpConfPath, content);
                 }
@@ -5501,6 +5697,8 @@ $cfg['SendErrorReports']              = 'never';
                 WebStart_Click(null, null);
             }
 
+            StartSmtpServer();
+
             lblHeaderTitle.Text = "RBW STACK CORE MANAGER";
             TmrStatus_Tick(null, null);
         }
@@ -5513,6 +5711,8 @@ $cfg['SendErrorReports']              = 'never';
             WebStop_Click(null, null);
             MySqlStop_Click(null, null);
             PhpStop_Click(null, null);
+
+            StopSmtpServer();
 
             lblHeaderTitle.Text = "RBW STACK CORE MANAGER";
             TmrStatus_Tick(null, null);
@@ -7475,6 +7675,7 @@ $cfg['SendErrorReports']              = 'never';
 
         public static void AddHostsEntry(string hostname)
         {
+            if (!IsAdminVHostMode()) return;
             try
             {
                 string hostsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"drivers\etc\hosts");
@@ -9007,8 +9208,23 @@ $cfg['SendErrorReports']              = 'never';
             catch { }
         }
 
+        public static bool IsAdminVHostMode()
+        {
+            try
+            {
+                var c = DeployDemoForm.LoadGlobalConfig();
+                if (c.ContainsKey("vhost_mode") && !string.IsNullOrEmpty(c["vhost_mode"]))
+                {
+                    return c["vhost_mode"] == "admin";
+                }
+            }
+            catch { }
+            return true; // Default to admin
+        }
+
         public static string GetVHostSuffix()
         {
+            if (!IsAdminVHostMode()) return "localhost";
             var c = DeployDemoForm.LoadGlobalConfig();
             if (c.ContainsKey("vhost_suffix") && !string.IsNullOrEmpty(c["vhost_suffix"]))
             {
@@ -9032,6 +9248,18 @@ $cfg['SendErrorReports']              = 'never';
                 {
                     enabled = (parts[0] == "1");
                     domain = parts[1];
+                    if (!IsAdminVHostMode())
+                    {
+                        int lastDot = domain.LastIndexOf('.');
+                        if (lastDot >= 0)
+                        {
+                            domain = domain.Substring(0, lastDot) + ".localhost";
+                        }
+                        else
+                        {
+                            domain = domain + ".localhost";
+                        }
+                    }
                     if (parts.Length >= 3)
                     {
                         useSsl = (parts[2] == "1");
@@ -9049,6 +9277,7 @@ $cfg['SendErrorReports']              = 'never';
 
         public static void RemoveHostsEntry(string hostname)
         {
+            if (!IsAdminVHostMode()) return;
             try
             {
                 string hostsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"drivers\etc\hosts");
@@ -9100,6 +9329,591 @@ $cfg['SendErrorReports']              = 'never';
             }
             catch { }
         }
+
+        // ── MAIL SANDBOX PROPERTIES & CONTROLS ─────────────────────
+        private Panel pnlTabMail;
+        private ListBox lstMailInbox;
+        private Panel pnlMailDetail;
+        private Label lblMailFrom;
+        private Label lblMailTo;
+        private Label lblMailSubject;
+        private Label lblMailDate;
+        private WebBrowser webMailBody;
+        private Label lblMailEmpty;
+
+        private static TcpListener _smtpListener;
+        private static Thread _smtpThread;
+        private static bool _smtpRunning = false;
+
+        public static int GetSmtpPort() { return 1025; }
+
+        public static void StartSmtpServer()
+        {
+            if (_smtpRunning) return;
+            try
+            {
+                int port = GetSmtpPort();
+                _smtpListener = new TcpListener(IPAddress.Loopback, port);
+                _smtpListener.Start();
+                _smtpRunning = true;
+                _smtpThread = new Thread(SmtpServerLoop);
+                _smtpThread.IsBackground = true;
+                _smtpThread.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Smtp start error: " + ex.Message);
+            }
+        }
+
+        public static void StopSmtpServer()
+        {
+            _smtpRunning = false;
+            try
+            {
+                if (_smtpListener != null)
+                {
+                    _smtpListener.Stop();
+                }
+            }
+            catch { }
+        }
+
+        private static void SmtpServerLoop()
+        {
+            while (_smtpRunning)
+            {
+                try
+                {
+                    TcpClient client = _smtpListener.AcceptTcpClient();
+                    Thread clientThread = new Thread(() => HandleSmtpClient(client));
+                    clientThread.IsBackground = true;
+                    clientThread.Start();
+                }
+                catch
+                {
+                    break;
+                }
+            }
+        }
+
+        private static void HandleSmtpClient(TcpClient client)
+        {
+            try
+            {
+                using (client)
+                using (NetworkStream stream = client.GetStream())
+                using (StreamReader reader = new StreamReader(stream, Encoding.UTF8))
+                using (StreamWriter writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true })
+                {
+                    writer.WriteLine("220 RBWStack Mail Sandbox Server");
+                    string from = "";
+                    List<string> to = new List<string>();
+                    StringBuilder dataBuilder = new StringBuilder();
+                    bool inData = false;
+
+                    while (true)
+                    {
+                        string line = reader.ReadLine();
+                        if (line == null) break;
+
+                        if (inData)
+                        {
+                            if (line == ".")
+                            {
+                                inData = false;
+                                writer.WriteLine("250 OK");
+                                ProcessReceivedEmail(from, to, dataBuilder.ToString());
+                            }
+                            else
+                            {
+                                if (line.StartsWith("."))
+                                {
+                                    line = line.Substring(1);
+                                }
+                                dataBuilder.AppendLine(line);
+                            }
+                        }
+                        else
+                        {
+                            string cmd = line.Trim();
+                            string cmdUpper = cmd.ToUpper();
+                            if (cmdUpper.StartsWith("HELO") || cmdUpper.StartsWith("EHLO"))
+                            {
+                                writer.WriteLine("250-localhost Hello");
+                                writer.WriteLine("250-SIZE 37748736");
+                                writer.WriteLine("250 PIPELINING");
+                            }
+                            else if (cmdUpper.StartsWith("MAIL FROM:"))
+                            {
+                                from = cmd.Substring(10).Trim('<', '>', ' ');
+                                writer.WriteLine("250 OK");
+                            }
+                            else if (cmdUpper.StartsWith("RCPT TO:"))
+                            {
+                                string rcpt = cmd.Substring(8).Trim('<', '>', ' ');
+                                to.Add(rcpt);
+                                writer.WriteLine("250 OK");
+                            }
+                            else if (cmdUpper == "DATA")
+                            {
+                                inData = true;
+                                dataBuilder.Clear();
+                                writer.WriteLine("354 Start mail input; end with <CR><LF>.<CR><LF>");
+                            }
+                            else if (cmdUpper == "QUIT")
+                            {
+                                writer.WriteLine("221 Bye");
+                                break;
+                            }
+                            else if (cmdUpper == "RSET")
+                            {
+                                from = "";
+                                to.Clear();
+                                dataBuilder.Clear();
+                                writer.WriteLine("250 OK");
+                            }
+                            else if (cmdUpper == "NOOP")
+                            {
+                                writer.WriteLine("250 OK");
+                            }
+                            else
+                            {
+                                writer.WriteLine("500 Syntax error, command unrecognized");
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        private static void ProcessReceivedEmail(string from, List<string> toList, string rawEmail)
+        {
+            try
+            {
+                string subject = "(No Subject)";
+                string body = "";
+                string contentType = "";
+                string dateStr = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                int headerEnd = rawEmail.IndexOf("\r\n\r\n");
+                if (headerEnd == -1) headerEnd = rawEmail.IndexOf("\n\n");
+
+                string headersText = headerEnd != -1 ? rawEmail.Substring(0, headerEnd) : rawEmail;
+                body = headerEnd != -1 ? rawEmail.Substring(headerEnd).Trim() : "";
+
+                string[] headerLines = headersText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                foreach (string line in headerLines)
+                {
+                    if (line.StartsWith("Subject:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        subject = line.Substring(8).Trim();
+                        subject = DecodeMimeHeader(subject);
+                    }
+                    else if (line.StartsWith("Content-Type:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        contentType = line.Substring(13).Trim();
+                    }
+                    else if (line.StartsWith("Date:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        dateStr = line.Substring(5).Trim();
+                    }
+                }
+
+                bool isHtml = contentType.Contains("text/html");
+
+                if (contentType.Contains("multipart/"))
+                {
+                    string boundary = "";
+                    var match = Regex.Match(contentType, @"boundary\s*=\s*""?([^"";\s]+)""?", RegexOptions.IgnoreCase);
+                    if (match.Success)
+                    {
+                        boundary = match.Groups[1].Value;
+                    }
+
+                    if (!string.IsNullOrEmpty(boundary))
+                    {
+                        string[] parts = body.Split(new[] { "--" + boundary }, StringSplitOptions.None);
+                        foreach (string part in parts)
+                        {
+                            if (part.Trim() == "--" || string.IsNullOrEmpty(part.Trim())) continue;
+                            
+                            int partHeaderEnd = part.IndexOf("\r\n\r\n");
+                            if (partHeaderEnd == -1) partHeaderEnd = part.IndexOf("\n\n");
+                            if (partHeaderEnd == -1) continue;
+
+                            string partHeaders = part.Substring(0, partHeaderEnd);
+                            string partBody = part.Substring(partHeaderEnd).Trim();
+
+                            bool partIsHtml = partHeaders.Contains("text/html");
+                            bool partIsText = partHeaders.Contains("text/plain");
+
+                            if (partIsHtml)
+                            {
+                                body = partBody;
+                                isHtml = true;
+                                break;
+                            }
+                            else if (partIsText && !isHtml)
+                            {
+                                body = partBody;
+                                isHtml = false;
+                            }
+                        }
+                    }
+                }
+
+                if (rawEmail.IndexOf("Content-Transfer-Encoding: quoted-printable", StringComparison.OrdinalIgnoreCase) != -1)
+                {
+                    body = DecodeQuotedPrintable(body);
+                }
+
+                var email = new CaughtEmail
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    From = from,
+                    To = string.Join(", ", toList),
+                    Subject = subject,
+                    Body = body,
+                    Date = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
+                    IsHtml = isHtml
+                };
+
+                SaveCaughtEmail(email);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Process email error: " + ex.Message);
+            }
+        }
+
+        private static string DecodeMimeHeader(string value)
+        {
+            try
+            {
+                var regex = new Regex(@"=\?([^?]+)\?([BQ])\?([^?]+)\?=", RegexOptions.IgnoreCase);
+                return regex.Replace(value, m =>
+                {
+                    string charset = m.Groups[1].Value;
+                    string encoding = m.Groups[2].Value.ToUpper();
+                    string data = m.Groups[3].Value;
+
+                    if (encoding == "B")
+                    {
+                        byte[] bytes = Convert.FromBase64String(data);
+                        return Encoding.GetEncoding(charset).GetString(bytes);
+                    }
+                    else if (encoding == "Q")
+                    {
+                        StringBuilder sb = new StringBuilder();
+                        for (int i = 0; i < data.Length; i++)
+                        {
+                            if (data[i] == '=')
+                            {
+                                string hex = data.Substring(i + 1, 2);
+                                sb.Append((char)Convert.ToInt32(hex, 16));
+                                i += 2;
+                            }
+                            else if (data[i] == '_')
+                            {
+                                sb.Append(' ');
+                            }
+                            else
+                            {
+                                sb.Append(data[i]);
+                            }
+                        }
+                        return sb.ToString();
+                    }
+                    return m.Value;
+                });
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        private static string DecodeQuotedPrintable(string input)
+        {
+            try
+            {
+                string output = Regex.Replace(input, @"=\r?\n", "");
+                var regex = new Regex(@"=([0-9A-F]{2})", RegexOptions.IgnoreCase);
+                return regex.Replace(output, m =>
+                {
+                    byte b = (byte)Convert.ToInt32(m.Groups[1].Value, 16);
+                    return Encoding.UTF8.GetString(new[] { b });
+                });
+            }
+            catch
+            {
+                return input;
+            }
+        }
+
+        private static string SimpleHtmlEncode(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&#39;");
+        }
+
+        private static readonly object _emailLock = new object();
+        private static string EmailsFilePath { get { return ConfigHelper.GetDataFilePath("caught_emails.json"); } }
+
+        public static List<CaughtEmail> LoadCaughtEmails()
+        {
+            lock (_emailLock)
+            {
+                try
+                {
+                    string path = EmailsFilePath;
+                    if (File.Exists(path))
+                    {
+                        string json = File.ReadAllText(path, Encoding.UTF8);
+                        return ParseEmailsJson(json);
+                    }
+                }
+                catch { }
+                return new List<CaughtEmail>();
+            }
+        }
+
+        private static string EscapeJsonString(string s)
+        {
+            if (s == null) return "";
+            return s.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", "\\r").Replace("\n", "\\n").Replace("\t", "\\t");
+        }
+
+        private static string ReadJsonStringValue(string json, string key)
+        {
+            string searchKey = "\"" + key + "\"";
+            int keyIdx = json.IndexOf(searchKey);
+            if (keyIdx < 0) return "";
+            int colonIdx = json.IndexOf(':', keyIdx + searchKey.Length);
+            if (colonIdx < 0) return "";
+            int openQuote = json.IndexOf('"', colonIdx + 1);
+            if (openQuote < 0) return "";
+            var sb = new StringBuilder();
+            for (int i = openQuote + 1; i < json.Length; i++)
+            {
+                char c = json[i];
+                if (c == '\\' && i + 1 < json.Length)
+                {
+                    char nc = json[i + 1];
+                    if (nc == '"') { sb.Append('"'); i++; }
+                    else if (nc == '\\') { sb.Append('\\'); i++; }
+                    else if (nc == 'n') { sb.Append('\n'); i++; }
+                    else if (nc == 'r') { sb.Append('\r'); i++; }
+                    else if (nc == 't') { sb.Append('\t'); i++; }
+                    else { sb.Append(nc); i++; }
+                }
+                else if (c == '"')
+                {
+                    break;
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
+        }
+
+        private static bool ReadJsonBoolValue(string json, string key)
+        {
+            string searchKey = "\"" + key + "\"";
+            int keyIdx = json.IndexOf(searchKey);
+            if (keyIdx < 0) return false;
+            int colonIdx = json.IndexOf(':', keyIdx + searchKey.Length);
+            if (colonIdx < 0) return false;
+            // skip whitespace
+            int vi = colonIdx + 1;
+            while (vi < json.Length && (json[vi] == ' ' || json[vi] == '\t' || json[vi] == '\r' || json[vi] == '\n')) vi++;
+            return vi < json.Length && json[vi] == 't';
+        }
+
+        private static List<CaughtEmail> ParseEmailsJson(string json)
+        {
+            var result = new List<CaughtEmail>();
+            // Find each object block {}
+            int i = 0;
+            while (i < json.Length)
+            {
+                int start = json.IndexOf('{', i);
+                if (start < 0) break;
+                int depth = 0;
+                int end = start;
+                for (int j = start; j < json.Length; j++)
+                {
+                    if (json[j] == '{') depth++;
+                    else if (json[j] == '}') { depth--; if (depth == 0) { end = j; break; } }
+                }
+                if (end <= start) break;
+                string obj = json.Substring(start, end - start + 1);
+                var email = new CaughtEmail();
+                email.Id = ReadJsonStringValue(obj, "Id");
+                email.From = ReadJsonStringValue(obj, "From");
+                email.To = ReadJsonStringValue(obj, "To");
+                email.Subject = ReadJsonStringValue(obj, "Subject");
+                email.Body = ReadJsonStringValue(obj, "Body");
+                email.Date = ReadJsonStringValue(obj, "Date");
+                email.IsHtml = ReadJsonBoolValue(obj, "IsHtml");
+                result.Add(email);
+                i = end + 1;
+            }
+            return result;
+        }
+
+        public static void SaveCaughtEmails(List<CaughtEmail> list)
+        {
+            lock (_emailLock)
+            {
+                try
+                {
+                    var sb = new StringBuilder();
+                    sb.Append("[\r\n");
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        var e = list[i];
+                        sb.Append("  {\r\n");
+                        sb.AppendFormat("    \"Id\": \"{0}\",\r\n", EscapeJsonString(e.Id));
+                        sb.AppendFormat("    \"From\": \"{0}\",\r\n", EscapeJsonString(e.From));
+                        sb.AppendFormat("    \"To\": \"{0}\",\r\n", EscapeJsonString(e.To));
+                        sb.AppendFormat("    \"Subject\": \"{0}\",\r\n", EscapeJsonString(e.Subject));
+                        sb.AppendFormat("    \"Body\": \"{0}\",\r\n", EscapeJsonString(e.Body));
+                        sb.AppendFormat("    \"Date\": \"{0}\",\r\n", EscapeJsonString(e.Date));
+                        sb.AppendFormat("    \"IsHtml\": {0}\r\n", e.IsHtml ? "true" : "false");
+                        sb.Append("  }");
+                        if (i < list.Count - 1) sb.Append(",");
+                        sb.Append("\r\n");
+                    }
+                    sb.Append("]");
+                    File.WriteAllText(EmailsFilePath, sb.ToString(), Encoding.UTF8);
+                }
+                catch { }
+            }
+        }
+
+        public static void SaveCaughtEmail(CaughtEmail email)
+        {
+            var list = LoadCaughtEmails();
+            list.Insert(0, email);
+            if (list.Count > 100)
+            {
+                list.RemoveRange(100, list.Count - 100);
+            }
+            SaveCaughtEmails(list);
+
+            if (Instance != null)
+            {
+                Instance.BeginInvoke(new Action(() => {
+                    Instance.RefreshMailList();
+                }));
+            }
+        }
+
+        public void RefreshMailList()
+        {
+            try
+            {
+                var list = LoadCaughtEmails();
+                lstMailInbox.BeginUpdate();
+                lstMailInbox.Items.Clear();
+                foreach (var email in list)
+                {
+                    lstMailInbox.Items.Add(email);
+                }
+                lstMailInbox.EndUpdate();
+
+                if (list.Count == 0)
+                {
+                    pnlMailDetail.Visible = false;
+                    lblMailEmpty.Visible = true;
+                }
+            }
+            catch { }
+        }
+
+        private void LstMailInbox_DrawItem(object sender, DrawItemEventArgs e)
+        {
+            if (e.Index < 0 || e.Index >= lstMailInbox.Items.Count) return;
+            var email = lstMailInbox.Items[e.Index] as CaughtEmail;
+            if (email == null) return;
+
+            e.DrawBackground();
+            Graphics g = e.Graphics;
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+
+            bool isSelected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+            Color bgCol = isSelected ? Color.FromArgb(239, 246, 255) : Color.White;
+            using (var brush = new SolidBrush(bgCol))
+            {
+                g.FillRectangle(brush, e.Bounds);
+            }
+
+            if (isSelected)
+            {
+                using (var pen = new Pen(Color.FromArgb(37, 99, 235), 2f))
+                {
+                    g.DrawLine(pen, e.Bounds.X, e.Bounds.Y, e.Bounds.X, e.Bounds.Bottom);
+                }
+            }
+
+            using (var fontSubject = new Font("Segoe UI", 9f, FontStyle.Bold))
+            using (var brushSubject = new SolidBrush(Color.FromArgb(30, 41, 59)))
+            {
+                string displaySubject = email.Subject;
+                if (displaySubject.Length > 28) displaySubject = displaySubject.Substring(0, 26) + "...";
+                g.DrawString(displaySubject, fontSubject, brushSubject, e.Bounds.X + 12, e.Bounds.Y + 6);
+            }
+
+            using (var fontDetail = new Font("Segoe UI", 7.5f))
+            using (var brushDetail = new SolidBrush(Color.FromArgb(100, 116, 139)))
+            {
+                string fromDisplay = email.From;
+                if (fromDisplay.Contains("<"))
+                {
+                    int startIdx = fromDisplay.IndexOf("<");
+                    if (startIdx > 0) fromDisplay = fromDisplay.Substring(0, startIdx).Trim();
+                }
+                if (fromDisplay.Length > 18) fromDisplay = fromDisplay.Substring(0, 16) + "...";
+                string detail = fromDisplay + "  •  " + email.Date;
+                g.DrawString(detail, fontDetail, brushDetail, e.Bounds.X + 12, e.Bounds.Y + 23);
+            }
+
+            using (var penDivider = new Pen(Color.FromArgb(241, 245, 249), 1f))
+            {
+                g.DrawLine(penDivider, e.Bounds.X + 10, e.Bounds.Bottom - 1, e.Bounds.Right - 10, e.Bounds.Bottom - 1);
+            }
+
+            e.DrawFocusRectangle();
+        }
+
+        private void LstMailInbox_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (lstMailInbox.SelectedIndex == -1)
+            {
+                pnlMailDetail.Visible = false;
+                lblMailEmpty.Visible = true;
+                return;
+            }
+
+            var email = lstMailInbox.SelectedItem as CaughtEmail;
+            if (email == null) return;
+
+            lblMailEmpty.Visible = false;
+            pnlMailDetail.Visible = true;
+
+            lblMailSubject.Text = email.Subject;
+            lblMailFrom.Text = "Từ: " + email.From;
+            lblMailTo.Text = "Đến: " + email.To;
+            lblMailDate.Text = "Thời gian: " + email.Date;
+
+            string html = email.IsHtml ? email.Body : "<html><body><pre style='font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap;'>" + SimpleHtmlEncode(email.Body) + "</pre></body></html>";
+            webMailBody.DocumentText = html;
+        }
     }
 
     // =======================================================
@@ -9110,15 +9924,15 @@ $cfg['SendErrorReports']              = 'never';
         private string _sitePath;
         private string _folderName;
 
-        private CheckBox _chkEnabled;
         private TextBox _txtDomain;
         private ModernButton _btnSave;
         private ModernButton _btnCancel;
 
-        private Color colorBg = Color.FromArgb(248, 250, 252);
+        private Color colorBg = Color.White;
         private Color colorBorder = Color.FromArgb(226, 232, 240);
         private Color colorText = Color.FromArgb(15, 23, 42);
         private Color colorTextDim = Color.FromArgb(100, 116, 139);
+
 
         private void ApplyRoundedRegion(Control control, int radius)
         {
@@ -9134,108 +9948,207 @@ $cfg['SendErrorReports']              = 'never';
             this.Size = new Size(380, 180);
             this.FormBorderStyle = FormBorderStyle.None;
             this.StartPosition = FormStartPosition.CenterParent;
-            this.BackColor = colorBg;
+            this.BackColor = Color.FromArgb(248, 250, 252); // Slate 50 background
             this.ShowInTaskbar = false;
 
-            this.Paint += (s, e) => {
-                using (Pen pen = new Pen(colorBorder, 2f))
+            // Paint Outer Border (matching Deploy form)
+            this.Paint += (s, pe) => {
+                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (Pen penPopup = new Pen(Color.FromArgb(148, 163, 184), 1.5f)) // Slate 400
                 {
-                    e.Graphics.DrawRectangle(pen, 1, 1, this.Width - 2, this.Height - 2);
+                    pe.Graphics.DrawRectangle(penPopup, 0, 0, this.Width - 1, this.Height - 1);
                 }
             };
-            ApplyRoundedRegion(this, 12);
 
-            Label lblTitle = new Label();
-            lblTitle.Text = "🌐  CẤU HÌNH HOST ẢO LOCAL";
-            lblTitle.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
-            lblTitle.ForeColor = Color.FromArgb(59, 130, 246);
-            lblTitle.Location = new Point(20, 15);
-            lblTitle.Size = new Size(340, 25);
-            this.Controls.Add(lblTitle);
+            // ── HEADER PANEL (matching Deploy form) ──────────────────────────
+            Panel pnlHeader = new Panel();
+            pnlHeader.Location = new Point(0, 0);
+            pnlHeader.Size = new Size(380, 40);
+            pnlHeader.BackColor = Color.FromArgb(241, 245, 249); // Slate 100
+            pnlHeader.Paint += (s, pe) => {
+                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (Font font = new Font("Segoe UI", 9.5f, FontStyle.Bold))
+                using (SolidBrush br = new SolidBrush(Color.FromArgb(37, 99, 235))) // Blue-600
+                {
+                    pe.Graphics.DrawString("⚡  CẤU HÌNH HOST ẢO LOCAL", font, br, new PointF(14f, 11f));
+                }
+                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240), 1f))
+                {
+                    pe.Graphics.DrawLine(pen, 0, 39, 380, 39);
+                }
+            };
+            pnlHeader.MouseDown += (s, e) => {
+                if (e.Button == MouseButtons.Left)
+                {
+                    MainForm.ReleaseCapture();
+                    MainForm.SendMessage(this.Handle, 0xA1, 0x2, 0);
+                }
+            };
+            this.Controls.Add(pnlHeader);
 
+            Label btnClose = new Label();
+            btnClose.Text = "✕";
+            btnClose.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
+            btnClose.ForeColor = Color.FromArgb(148, 163, 184); // Slate 400
+            btnClose.Location = new Point(345, 8);
+            btnClose.Size = new Size(26, 24);
+            btnClose.TextAlign = ContentAlignment.MiddleCenter;
+            btnClose.Cursor = Cursors.Hand;
+            btnClose.Click += (s, e) => this.Close();
+            btnClose.MouseEnter += (s, e) => { btnClose.ForeColor = Color.White; btnClose.BackColor = Color.FromArgb(239, 68, 68); };
+            btnClose.MouseLeave += (s, e) => { btnClose.ForeColor = Color.FromArgb(148, 163, 184); btnClose.BackColor = Color.Transparent; };
+            pnlHeader.Controls.Add(btnClose);
+
+            // ── DOMAIN FIELD ──────────────────────────────────────────
             bool enabled;
             string domain;
             bool useSsl;
             MainForm.GetVHostConfig(sitePath, folderName, out enabled, out domain, out useSsl);
 
-            _chkEnabled = new CheckBox();
-            _chkEnabled.Text = "Kích hoạt Host ảo chạy local";
-            _chkEnabled.Font = new Font("Segoe UI Semibold", 9.5f);
-            _chkEnabled.ForeColor = colorText;
-            _chkEnabled.Checked = enabled;
-            _chkEnabled.Location = new Point(25, 52);
-            _chkEnabled.Size = new Size(330, 25);
-            _chkEnabled.FlatStyle = FlatStyle.Flat;
-            _chkEnabled.FlatAppearance.BorderSize = 1;
-            _chkEnabled.FlatAppearance.BorderColor = colorBorder;
-            _chkEnabled.CheckedChanged += (s, e) => {
-                _txtDomain.Enabled = _chkEnabled.Checked;
-            };
-            this.Controls.Add(_chkEnabled);
-
             Label lblDomain = new Label();
             lblDomain.Text = "Tên miền ảo:";
             lblDomain.Font = new Font("Segoe UI", 9f);
-            lblDomain.ForeColor = colorTextDim;
-            lblDomain.Location = new Point(25, 93);
+            lblDomain.ForeColor = Color.FromArgb(100, 116, 139); // Slate 500
+            lblDomain.Location = new Point(20, 68);
             lblDomain.Size = new Size(90, 20);
             this.Controls.Add(lblDomain);
+
+            Panel pnlDomainWrap = new Panel();
+            pnlDomainWrap.Location = new Point(115, 62);
+            pnlDomainWrap.Size = new Size(245, 30);
+            pnlDomainWrap.BackColor = Color.White;
+            pnlDomainWrap.Paint += (s, paintEvt) => {
+                using (var pen = new Pen(Color.FromArgb(203, 213, 225), 1.5f)) // Slate 300
+                {
+                    paintEvt.Graphics.DrawRectangle(pen, 0, 0, pnlDomainWrap.Width - 1, pnlDomainWrap.Height - 1);
+                }
+            };
+            this.Controls.Add(pnlDomainWrap);
+            ApplyRoundedRegion(pnlDomainWrap, 6);
 
             _txtDomain = new TextBox();
             _txtDomain.Text = domain;
             _txtDomain.Font = new Font("Segoe UI", 9.5f);
-            _txtDomain.Location = new Point(115, 90);
-            _txtDomain.Size = new Size(240, 25);
-            _txtDomain.Enabled = enabled;
-            this.Controls.Add(_txtDomain);
+            _txtDomain.Location = new Point(8, 6);
+            _txtDomain.Size = new Size(229, 18);
+            _txtDomain.BorderStyle = BorderStyle.None;
+            _txtDomain.BackColor = Color.White;
+            _txtDomain.ForeColor = Color.FromArgb(15, 23, 42); // Slate 900
+            pnlDomainWrap.Controls.Add(_txtDomain);
 
-            _btnSave = new ModernButton();
-            _btnSave.Text = "Lưu & Áp dụng";
-            _btnSave.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-            _btnSave.NormalColor = Color.FromArgb(59, 130, 246);
-            _btnSave.HoverColor = Color.FromArgb(37, 99, 235);
-            _btnSave.ForeColor = Color.White;
-            _btnSave.Location = new Point(70, 132);
-            _btnSave.Size = new Size(130, 32);
-            _btnSave.CornerRadius = 6;
-            _btnSave.Click += (s, e) => {
-                string newDomain = _txtDomain.Text.Trim().ToLower();
-                if (string.IsNullOrEmpty(newDomain))
-                {
-                    MessageBox.Show("Vui lòng nhập tên miền ảo hợp lệ!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
+            // ── ACTION BUTTONS ─────────────────────────────────────────
+            if (!enabled)
+            {
+                // Host ảo chưa bật: hiện nút "Bật Host ảo" và "Hủy"
+                _btnSave = new ModernButton();
+                _btnSave.Text = "Bật Host ảo";
+                _btnSave.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnSave.NormalColor = Color.FromArgb(34, 197, 94); // Green-500
+                _btnSave.HoverColor = Color.FromArgb(22, 163, 74); // Green-600
+                _btnSave.ForeColor = Color.White;
+                _btnSave.Location = new Point(70, 118);
+                _btnSave.Size = new Size(130, 32);
+                _btnSave.CornerRadius = 6;
+                _btnSave.Click += (s, e) => {
+                    string newDomain = _txtDomain.Text.Trim().ToLower();
+                    if (string.IsNullOrEmpty(newDomain))
+                    {
+                        MessageBox.Show("Vui lòng nhập tên miền ảo hợp lệ!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
 
-                if (!enabled || newDomain != domain)
-                {
+                    MainForm.SaveVHostConfig(_sitePath, true, newDomain, true);
+                    MainForm.UpdateAllProjectsEnvFiles("");
+
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                };
+                this.Controls.Add(_btnSave);
+
+                _btnCancel = new ModernButton();
+                _btnCancel.Text = "Hủy";
+                _btnCancel.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnCancel.NormalColor = Color.White;
+                _btnCancel.HoverColor = Color.FromArgb(243, 244, 246);
+                _btnCancel.ForeColor = Color.FromArgb(107, 114, 128);
+                _btnCancel.BorderColor = Color.FromArgb(229, 231, 235);
+                _btnCancel.Location = new Point(210, 118);
+                _btnCancel.Size = new Size(100, 32);
+                _btnCancel.CornerRadius = 6;
+                _btnCancel.Click += (s, e) => {
+                    this.DialogResult = DialogResult.Cancel;
+                    this.Close();
+                };
+                this.Controls.Add(_btnCancel);
+            }
+            else
+            {
+                // Host ảo đang chạy: hiện nút "Cập nhật", "Tắt Host ảo" và "Hủy"
+                _btnSave = new ModernButton();
+                _btnSave.Text = "Cập nhật";
+                _btnSave.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnSave.NormalColor = Color.FromArgb(59, 130, 246); // Blue-500
+                _btnSave.HoverColor = Color.FromArgb(37, 99, 235); // Blue-600
+                _btnSave.ForeColor = Color.White;
+                _btnSave.Location = new Point(30, 118);
+                _btnSave.Size = new Size(100, 32);
+                _btnSave.CornerRadius = 6;
+                _btnSave.Click += (s, e) => {
+                    string newDomain = _txtDomain.Text.Trim().ToLower();
+                    if (string.IsNullOrEmpty(newDomain))
+                    {
+                        MessageBox.Show("Vui lòng nhập tên miền ảo hợp lệ!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+
+                    if (newDomain != domain)
+                    {
+                        MainForm.RemoveHostsEntry(domain);
+                    }
+
+                    MainForm.SaveVHostConfig(_sitePath, true, newDomain, true);
+                    MainForm.UpdateAllProjectsEnvFiles("");
+
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                };
+                this.Controls.Add(_btnSave);
+
+                ModernButton btnToggleOff = new ModernButton();
+                btnToggleOff.Text = "Tắt Host ảo";
+                btnToggleOff.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                btnToggleOff.NormalColor = Color.FromArgb(239, 68, 68); // Red-500
+                btnToggleOff.HoverColor = Color.FromArgb(220, 38, 38); // Red-600
+                btnToggleOff.ForeColor = Color.White;
+                btnToggleOff.Location = new Point(140, 118);
+                btnToggleOff.Size = new Size(110, 32);
+                btnToggleOff.CornerRadius = 6;
+                btnToggleOff.Click += (s, e) => {
                     MainForm.RemoveHostsEntry(domain);
-                }
+                    MainForm.SaveVHostConfig(_sitePath, false, domain, true);
+                    MainForm.UpdateAllProjectsEnvFiles("");
 
-                MainForm.SaveVHostConfig(_sitePath, _chkEnabled.Checked, newDomain, true);
+                    this.DialogResult = DialogResult.OK;
+                    this.Close();
+                };
+                this.Controls.Add(btnToggleOff);
 
-                // Update the project's .env file immediately!
-                MainForm.UpdateAllProjectsEnvFiles("");
-
-                this.DialogResult = DialogResult.OK;
-                this.Close();
-            };
-            this.Controls.Add(_btnSave);
-
-            _btnCancel = new ModernButton();
-            _btnCancel.Text = "Hủy";
-            _btnCancel.Font = new Font("Segoe UI", 9.5f);
-            _btnCancel.NormalColor = Color.White;
-            _btnCancel.HoverColor = Color.FromArgb(243, 244, 246);
-            _btnCancel.ForeColor = Color.FromArgb(107, 114, 128);
-            _btnCancel.BorderColor = colorBorder;
-            _btnCancel.Location = new Point(210, 132);
-            _btnCancel.Size = new Size(100, 32);
-            _btnCancel.CornerRadius = 6;
-            _btnCancel.Click += (s, e) => {
-                this.DialogResult = DialogResult.Cancel;
-                this.Close();
-            };
-            this.Controls.Add(_btnCancel);
+                _btnCancel = new ModernButton();
+                _btnCancel.Text = "Hủy";
+                _btnCancel.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnCancel.NormalColor = Color.White;
+                _btnCancel.HoverColor = Color.FromArgb(243, 244, 246);
+                _btnCancel.ForeColor = Color.FromArgb(107, 114, 128);
+                _btnCancel.BorderColor = Color.FromArgb(229, 231, 235);
+                _btnCancel.Location = new Point(260, 118);
+                _btnCancel.Size = new Size(80, 32);
+                _btnCancel.CornerRadius = 6;
+                _btnCancel.Click += (s, e) => {
+                    this.DialogResult = DialogResult.Cancel;
+                    this.Close();
+                };
+                this.Controls.Add(_btnCancel);
+            }
         }
     }
 
@@ -11035,5 +11948,16 @@ $cfg['SendErrorReports']              = 'never';
             using (Pen p = new Pen(Color.FromArgb(229, 231, 235)))
                 e.Graphics.DrawRectangle(p, 0, 0, this.Width - 1, this.Height - 1);
         }
+    }
+
+    public class CaughtEmail
+    {
+        public string Id { get; set; }
+        public string From { get; set; }
+        public string To { get; set; }
+        public string Subject { get; set; }
+        public string Body { get; set; }
+        public string Date { get; set; }
+        public bool IsHtml { get; set; }
     }
 }
