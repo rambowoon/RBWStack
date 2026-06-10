@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -3076,7 +3076,7 @@ $cfg['SendErrorReports']              = 'never';
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.0.1", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.Equals("v2.1.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -4281,7 +4281,7 @@ $cfg['SendErrorReports']              = 'never';
             Label lblAboutDesc = new Label();
             lblAboutDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.0.1 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v2.1.0 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -4316,13 +4316,13 @@ $cfg['SendErrorReports']              = 'never';
                             
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.0.1", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.Equals("v2.1.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.0.1).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.1.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -8210,7 +8210,7 @@ $cfg['SendErrorReports']              = 'never';
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.0.1  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.1.0  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
@@ -9606,25 +9606,32 @@ $cfg['SendErrorReports']              = 'never';
                     }
                     else if (encoding == "Q")
                     {
-                        StringBuilder sb = new StringBuilder();
+                        List<byte> bytes = new List<byte>();
                         for (int i = 0; i < data.Length; i++)
                         {
                             if (data[i] == '=')
                             {
                                 string hex = data.Substring(i + 1, 2);
-                                sb.Append((char)Convert.ToInt32(hex, 16));
+                                bytes.Add((byte)Convert.ToInt32(hex, 16));
                                 i += 2;
                             }
                             else if (data[i] == '_')
                             {
-                                sb.Append(' ');
+                                bytes.Add((byte)' ');
                             }
                             else
                             {
-                                sb.Append(data[i]);
+                                bytes.Add((byte)data[i]);
                             }
                         }
-                        return sb.ToString();
+                        try
+                        {
+                            return Encoding.GetEncoding(charset).GetString(bytes.ToArray());
+                        }
+                        catch
+                        {
+                            return Encoding.UTF8.GetString(bytes.ToArray());
+                        }
                     }
                     return m.Value;
                 });
@@ -9640,12 +9647,39 @@ $cfg['SendErrorReports']              = 'never';
             try
             {
                 string output = Regex.Replace(input, @"=\r?\n", "");
-                var regex = new Regex(@"=([0-9A-F]{2})", RegexOptions.IgnoreCase);
-                return regex.Replace(output, m =>
+                List<byte> bytes = new List<byte>();
+                for (int i = 0; i < output.Length; i++)
                 {
-                    byte b = (byte)Convert.ToInt32(m.Groups[1].Value, 16);
-                    return Encoding.UTF8.GetString(new[] { b });
-                });
+                    char c = output[i];
+                    if (c == '=' && i + 2 < output.Length)
+                    {
+                        string hex = output.Substring(i + 1, 2);
+                        if (Regex.IsMatch(hex, "^[0-9A-Fa-f]{2}$"))
+                        {
+                            byte b = (byte)Convert.ToInt32(hex, 16);
+                            bytes.Add(b);
+                            i += 2;
+                            continue;
+                        }
+                    }
+                    
+                    if (c == '\r' && i + 1 < output.Length && output[i + 1] == '\n')
+                    {
+                        bytes.Add((byte)'\r');
+                        bytes.Add((byte)'\n');
+                        i++;
+                    }
+                    else if (c == '\n')
+                    {
+                        bytes.Add((byte)'\n');
+                    }
+                    else
+                    {
+                        byte[] charBytes = Encoding.UTF8.GetBytes(new[] { c });
+                        bytes.AddRange(charBytes);
+                    }
+                }
+                return Encoding.UTF8.GetString(bytes.ToArray());
             }
             catch
             {
