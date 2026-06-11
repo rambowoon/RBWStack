@@ -11220,7 +11220,7 @@ $cfg['SendErrorReports']              = 'never';
                             if (isAlreadyExists)
                             {
                                 AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
-                                string dbModifyPostData = "action=modify&db=" + Uri.EscapeDataString(targetDbName) + 
+                                string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
                                                          "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                          "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
@@ -11254,7 +11254,7 @@ $cfg['SendErrorReports']              = 'never';
                             else
                             {
                                 AppendLog("  DA API: Đang đổi mật khẩu của user \"" + targetDbUser + "\" thành mật khẩu đồng bộ...", colorDim);
-                                string dbModifyPostData = "action=modify&db=" + Uri.EscapeDataString(targetDbName) + 
+                                string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
                                                          "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                          "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
