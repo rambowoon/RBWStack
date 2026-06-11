@@ -4271,7 +4271,18 @@ $cfg['SendErrorReports']              = 'never';
             webMailBody.Location = new Point(20, 100);
             webMailBody.Size = new Size(720 - 260 - 40, 390);
             webMailBody.ScriptErrorsSuppressed = true;
-            webMailBody.AllowNavigation = false;
+            webMailBody.Navigating += (s, e) => {
+                string urlObj = e.Url.ToString();
+                if (urlObj != "about:blank")
+                {
+                    e.Cancel = true;
+                    if (urlObj.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                        urlObj.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { System.Diagnostics.Process.Start(urlObj); } catch { }
+                    }
+                }
+            };
             pnlMailDetail.Controls.Add(webMailBody);
 
             // Empty state label for Right panel
@@ -10133,10 +10144,23 @@ $cfg['SendErrorReports']              = 'never';
             pnlBrowserWrap.Padding = new Padding(20);
             pnlBrowserWrap.BackColor = Color.FromArgb(248, 250, 252);
             this.Controls.Add(pnlBrowserWrap);
+            pnlBrowserWrap.BringToFront();
 
             webBody = new WebBrowser();
             webBody.Dock = DockStyle.Fill;
             webBody.ScriptErrorsSuppressed = true;
+            webBody.Navigating += (s, e) => {
+                string urlObj = e.Url.ToString();
+                if (urlObj != "about:blank")
+                {
+                    e.Cancel = true;
+                    if (urlObj.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                        urlObj.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { System.Diagnostics.Process.Start(urlObj); } catch { }
+                    }
+                }
+            };
             pnlBrowserWrap.Controls.Add(webBody);
 
             string html = email.IsHtml ? email.Body : "<html><body><pre style='font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap;'>" + SimpleHtmlEncode(email.Body) + "</pre></body></html>";
