@@ -9431,7 +9431,23 @@ $cfg['SendErrorReports']              = 'never';
                             {
                                 writer.WriteLine("250-localhost Hello");
                                 writer.WriteLine("250-SIZE 37748736");
+                                writer.WriteLine("250-AUTH LOGIN PLAIN");
                                 writer.WriteLine("250 PIPELINING");
+                            }
+                            else if (cmdUpper.StartsWith("AUTH "))
+                            {
+                                if (cmdUpper.Contains("LOGIN"))
+                                {
+                                    writer.WriteLine("334 VXNlcm5hbWU6");
+                                    reader.ReadLine();
+                                    writer.WriteLine("334 UGFzc3dvcmQ6");
+                                    reader.ReadLine();
+                                    writer.WriteLine("235 2.7.0 Authentication successful");
+                                }
+                                else
+                                {
+                                    writer.WriteLine("235 2.7.0 Authentication successful");
+                                }
                             }
                             else if (cmdUpper.StartsWith("MAIL FROM:"))
                             {
