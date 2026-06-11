@@ -9508,6 +9508,9 @@ $cfg['SendErrorReports']              = 'never';
                 string headersText = headerEnd != -1 ? rawEmail.Substring(0, headerEnd) : rawEmail;
                 body = headerEnd != -1 ? rawEmail.Substring(headerEnd).Trim() : "";
 
+                // Unfold folded headers (RFC 2822: CRLF followed by space/tab)
+                headersText = Regex.Replace(headersText, @"\r?\n[ \t]", " ");
+
                 string[] headerLines = headersText.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
                 foreach (string line in headerLines)
                 {
@@ -9549,6 +9552,7 @@ $cfg['SendErrorReports']              = 'never';
                             if (partHeaderEnd == -1) continue;
 
                             string partHeaders = part.Substring(0, partHeaderEnd);
+                            partHeaders = Regex.Replace(partHeaders, @"\r?\n[ \t]", " ");
                             string partBody = part.Substring(partHeaderEnd).Trim();
 
                             bool partIsHtml = partHeaders.Contains("text/html");
