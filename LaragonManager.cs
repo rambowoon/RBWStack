@@ -10725,17 +10725,23 @@ $cfg['SendErrorReports']              = 'never';
 
         private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
 
-        private static void GetFilesAndDirsLongPath(string dir, List<string> fileList, List<string> dirList)
+        private class FileLongPathInfo
+        {
+            public string FullPath;
+            public long Length;
+        }
+
+        private static void GetFilesAndDirsLongPath(string dir, List<FileLongPathInfo> fileList, List<string> dirList)
         {
             string searchPath = dir;
             if (!searchPath.StartsWith(@"\\?\"))
             {
                 searchPath = @"\\?\" + Path.GetFullPath(searchPath);
             }
-            searchPath = searchPath.TrimEnd('\\') + @"\*";
+            string searchFilter = searchPath.TrimEnd('\\') + @"\*";
 
             WIN32_FIND_DATA findData;
-            IntPtr hFind = FindFirstFile(searchPath, out findData);
+            IntPtr hFind = FindFirstFile(searchFilter, out findData);
             if (hFind != INVALID_HANDLE_VALUE)
             {
                 try
@@ -10745,7 +10751,8 @@ $cfg['SendErrorReports']              = 'never';
                         if (findData.cFileName == "." || findData.cFileName == "..")
                             continue;
 
-                        string fullPath = Path.Combine(dir, findData.cFileName);
+                        string cleanDir = dir.EndsWith("\\") ? dir : (dir + "\\");
+                        string fullPath = cleanDir + findData.cFileName;
                         bool isDir = (findData.dwFileAttributes & 0x10) != 0; // FILE_ATTRIBUTE_DIRECTORY
 
                         if (isDir)
@@ -10755,7 +10762,8 @@ $cfg['SendErrorReports']              = 'never';
                         }
                         else
                         {
-                            fileList.Add(fullPath);
+                            long fileSize = ((long)findData.nFileSizeHigh << 32) + findData.nFileSizeLow;
+                            fileList.Add(new FileLongPathInfo { FullPath = fullPath, Length = fileSize });
                         }
                     } while (FindNextFile(hFind, out findData));
                 }
@@ -10795,31 +10803,25 @@ $cfg['SendErrorReports']              = 'never';
         {
             if (File.Exists(zipPath)) File.Delete(zipPath);
             
-            List<string> files = new List<string>();
+            List<FileLongPathInfo> files = new List<FileLongPathInfo>();
             List<string> dirs = new List<string>();
             GetFilesAndDirsLongPath(sourceDir, files, dirs);
             
             int totalFiles = files.Count;
             long totalBytes = 0;
-            
             foreach (var f in files)
             {
-                try
-                {
-                    string longPath = f;
-                    if (!longPath.StartsWith(@"\\?\"))
-                    {
-                        longPath = @"\\?\" + Path.GetFullPath(longPath);
-                    }
-                    totalBytes += new FileInfo(longPath).Length;
-                }
-                catch { }
+                totalBytes += f.Length;
             }
 
             using (var zipStream = new FileStream(zipPath, FileMode.Create))
             using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create))
             {
                 string absSourceDir = Path.GetFullPath(sourceDir);
+                if (!absSourceDir.StartsWith(@"\\?\"))
+                {
+                    absSourceDir = @"\\?\" + absSourceDir;
+                }
                 int stripLength = absSourceDir.Length;
                 if (!absSourceDir.EndsWith(Path.DirectorySeparatorChar.ToString()))
                 {
@@ -10830,8 +10832,9 @@ $cfg['SendErrorReports']              = 'never';
                 int processedFiles = 0;
                 DateTime lastLogTime = DateTime.MinValue;
 
-                foreach (var file in files)
+                foreach (var fileInfo in files)
                 {
+                    string file = fileInfo.FullPath;
                     string relativePath = file.Substring(stripLength);
                     string entryName = relativePath.Replace('\\', '/');
                     
@@ -10840,11 +10843,7 @@ $cfg['SendErrorReports']              = 'never';
                     using (var fileStream = OpenFileLongPath(file))
                     {
                         fileStream.CopyTo(entryStream);
-                        try
-                        {
-                            processedBytes += fileStream.Length;
-                        }
-                        catch { }
+                        processedBytes += fileInfo.Length;
                     }
 
                     processedFiles++;
@@ -10862,7 +10861,7 @@ $cfg['SendErrorReports']              = 'never';
                     string dirWithSlash = dir.TrimEnd('\\') + "\\";
                     foreach (var f in files)
                     {
-                        if (f.StartsWith(dirWithSlash, StringComparison.OrdinalIgnoreCase))
+                        if (f.FullPath.StartsWith(dirWithSlash, StringComparison.OrdinalIgnoreCase))
                         {
                             hasContents = true;
                             break;
