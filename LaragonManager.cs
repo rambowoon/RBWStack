@@ -8942,6 +8942,8 @@ $cfg['SendErrorReports']              = 'never';
                             : "https://" + "localhost" + (webPort == "80" ? "" : ":" + webPort) + "/" + relativeSitePath;
                     }
 
+                    string captureRelativePath = relativeSitePath;
+
                     ModernButton btnUrl = new ModernButton();
                     btnUrl.Text = "🔗";
                     btnUrl.Font = new Font("Segoe UI", 10f);
@@ -8954,6 +8956,18 @@ $cfg['SendErrorReports']              = 'never';
                         try { Process.Start(siteUrl); } catch { }
                     };
                     pnlCard.Controls.Add(btnUrl);
+
+                    ContextMenuStrip menuUrl = new ContextMenuStrip();
+                    menuUrl.Items.Add("Mở trang web", null, (s, e) => {
+                        try { Process.Start(siteUrl); } catch { }
+                    });
+                    menuUrl.Items.Add("Sao chép liên kết", null, (s, e) => {
+                        try { Clipboard.SetText(siteUrl); } catch { }
+                    });
+                    btnUrl.ContextMenuStrip = menuUrl;
+                    btnUrl.MouseUp += (s, me) => {
+                        if (me.Button == MouseButtons.Right) { menuUrl.Show(btnUrl, me.Location); }
+                    };
 
                     ModernButton btnVHost = new ModernButton();
                     btnVHost.Text = "🌐";
@@ -8982,6 +8996,29 @@ $cfg['SendErrorReports']              = 'never';
                     };
                     pnlCard.Controls.Add(btnVHost);
 
+                    ContextMenuStrip menuVHost = new ContextMenuStrip();
+                    menuVHost.Items.Add("Cấu hình Host ảo...", null, (s, e) => {
+                        var vhostForm = new VirtualHostForm(captureRelativePath, folderName);
+                        if (vhostForm.ShowDialog(this) == DialogResult.OK)
+                        {
+                            RestartWebServicesAndPhp();
+                            RenderSitesList();
+                        }
+                    });
+                    string toggleText = vhostEnabled ? "Tắt nhanh Host ảo" : "Bật nhanh Host ảo";
+                    menuVHost.Items.Add(toggleText, null, (s, e) => {
+                        SaveVHostConfig(captureRelativePath, !vhostEnabled, folderName + GetVHostSuffix(), vhostUseSsl);
+                        RestartWebServicesAndPhp();
+                        RenderSitesList();
+                    });
+                    menuVHost.Items.Add("Mở file hosts", null, (s, e) => {
+                        try { Process.Start("notepad.exe", @"C:\Windows\System32\drivers\etc\hosts"); } catch { }
+                    });
+                    btnVHost.ContextMenuStrip = menuVHost;
+                    btnVHost.MouseUp += (s, me) => {
+                        if (me.Button == MouseButtons.Right) { menuVHost.Show(btnVHost, me.Location); }
+                    };
+
                     ModernButton btnOpen = new ModernButton();
                     btnOpen.Text = "📂";
                     btnOpen.Font = new Font("Segoe UI", 10f);
@@ -8994,6 +9031,34 @@ $cfg['SendErrorReports']              = 'never';
                         try { Process.Start("explorer.exe", dir); } catch { }
                     };
                     pnlCard.Controls.Add(btnOpen);
+
+                    ContextMenuStrip menuOpen = new ContextMenuStrip();
+                    menuOpen.Items.Add("Mở thư mục dự án", null, (s, e) => {
+                        try { Process.Start("explorer.exe", dir); } catch { }
+                    });
+                    menuOpen.Items.Add("Mở bằng VS Code", null, (s, e) => {
+                        try
+                        {
+                            ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c code .")
+                            {
+                                WorkingDirectory = dir,
+                                CreateNoWindow = true,
+                                UseShellExecute = false
+                            };
+                            Process.Start(psi);
+                        }
+                        catch { }
+                    });
+                    menuOpen.Items.Add("Mở bằng Command Prompt", null, (s, e) => {
+                        try { Process.Start(new ProcessStartInfo("cmd.exe") { WorkingDirectory = dir }); } catch { }
+                    });
+                    menuOpen.Items.Add("Mở bằng PowerShell", null, (s, e) => {
+                        try { Process.Start(new ProcessStartInfo("powershell.exe") { WorkingDirectory = dir }); } catch { }
+                    });
+                    btnOpen.ContextMenuStrip = menuOpen;
+                    btnOpen.MouseUp += (s, me) => {
+                        if (me.Button == MouseButtons.Right) { menuOpen.Show(btnOpen, me.Location); }
+                    };
 
                     toolTip.SetToolTip(btnUrl, siteUrl);
                     toolTip.SetToolTip(btnOpen, "Mở thư mục dự án");
@@ -9022,7 +9087,6 @@ $cfg['SendErrorReports']              = 'never';
                         toolTip.SetToolTip(btnSetRoot, "Set dự án này chạy trực tiếp tại https://localhost (Root)");
                     }
 
-                    string captureRelativePath = relativeSitePath;
                     btnSetRoot.Click += (s, e) => {
                         string currentRoot = LoadRootProjectConfig();
                         if (currentRoot.Equals(captureRelativePath, StringComparison.OrdinalIgnoreCase))
@@ -9037,6 +9101,28 @@ $cfg['SendErrorReports']              = 'never';
                         RenderSitesList();
                     };
                     pnlCard.Controls.Add(btnSetRoot);
+
+                    ContextMenuStrip menuRoot = new ContextMenuStrip();
+                    if (isRoot)
+                    {
+                        menuRoot.Items.Add("Hủy đặt làm Root Project", null, (s, e) => {
+                            SaveRootProjectConfig("");
+                            RestartWebServicesAndPhp();
+                            RenderSitesList();
+                        });
+                    }
+                    else
+                    {
+                        menuRoot.Items.Add("Đặt làm Root Project", null, (s, e) => {
+                            SaveRootProjectConfig(captureRelativePath);
+                            RestartWebServicesAndPhp();
+                            RenderSitesList();
+                        });
+                    }
+                    btnSetRoot.ContextMenuStrip = menuRoot;
+                    btnSetRoot.MouseUp += (s, me) => {
+                        if (me.Button == MouseButtons.Right) { menuRoot.Show(btnSetRoot, me.Location); }
+                    };
 
                     ComboBox cbPhp = new NoScrollComboBox();
                     cbPhp.BackColor = Color.White;
@@ -9149,6 +9235,48 @@ $cfg['SendErrorReports']              = 'never';
                     pnlCard.Controls.Add(btnTunnel);
                     pnlCard.Controls.Add(btnTunnelUrl);
 
+                    ContextMenuStrip menuTunnel = new ContextMenuStrip();
+                    string tunnelToggle = isTunnelActive ? "Dừng Cloudflare Tunnel" : "Kích hoạt Cloudflare Tunnel";
+                    menuTunnel.Items.Add(tunnelToggle, null, (s, e) => {
+                        Dictionary<string, string> currTunnels = LoadTunnelsConfig();
+                        string mapped = "";
+                        bool isActive = false;
+                        if (currTunnels.TryGetValue(captureSitePath, out mapped))
+                        {
+                            string[] p = mapped.Split('|');
+                            if (p.Length >= 3) isActive = (p[2] == "1");
+                        }
+
+                        if (isActive)
+                        {
+                            StopTunnelProcess(captureSitePath);
+                            currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
+                            SaveTunnelsConfig(currTunnels);
+                            RestartWebServicesAndPhp();
+                            RenderSitesList();
+                        }
+                        else
+                        {
+                            btnTunnel.Text = "⏳";
+                            btnTunnel.Enabled = false;
+                            StartTunnelProcess(captureSitePath);
+                        }
+                    });
+                    if (isTunnelActive)
+                    {
+                        string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
+                        menuTunnel.Items.Add("Mở liên kết Tunnel", null, (s, e) => {
+                            try { Process.Start(tunnelLink); } catch { }
+                        });
+                        menuTunnel.Items.Add("Sao chép liên kết Tunnel", null, (s, e) => {
+                            try { Clipboard.SetText(tunnelLink); } catch { }
+                        });
+                    }
+                    btnTunnel.ContextMenuStrip = menuTunnel;
+                    btnTunnel.MouseUp += (s, me) => {
+                        if (me.Button == MouseButtons.Right) { menuTunnel.Show(btnTunnel, me.Location); }
+                    };
+
                     // --- Nut Deploy Demo ---
                     string captureDir2 = dir;
                     string captureSiteDeploy2 = captureSitePath;
@@ -9184,6 +9312,20 @@ $cfg['SendErrorReports']              = 'never';
                         RenderSitesList(); // refresh card after deploy
                     };
                     pnlCard.Controls.Add(btnDeploy);
+
+                    ContextMenuStrip menuDeploy = new ContextMenuStrip();
+                    menuDeploy.Items.Add(alreadyDeployed ? "Mở khóa & Deploy lại..." : "Deploy Demo lên hosting...", null, (s, e) => {
+                        var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
+                        deployForm.ShowDialog(this);
+                        RenderSitesList();
+                    });
+                    menuDeploy.Items.Add("Mở phpMyAdmin", null, (s, e) => {
+                        try { Process.Start("http://localhost/phpmyadmin"); } catch { }
+                    });
+                    btnDeploy.ContextMenuStrip = menuDeploy;
+                    btnDeploy.MouseUp += (s, me) => {
+                        if (me.Button == MouseButtons.Right) { menuDeploy.Show(btnDeploy, me.Location); }
+                    };
 
                     currentY += 56;
                 }
