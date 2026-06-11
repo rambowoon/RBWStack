@@ -11224,7 +11224,7 @@ $cfg['SendErrorReports']              = 'never';
                             string decodedDaRes = Uri.UnescapeDataString(daRes);
                             AppendLog("  DA API Response: " + decodedDaRes, colorDim);
 
-                            if (daRes.StartsWith("error:") || daRes.Contains("Unauthorized") || daRes.Contains("Access denied") || daRes.Contains("Forbidden"))
+                            if (daRes.StartsWith("error:") && !daRes.Contains("500") && (daRes.Contains("Unauthorized") || daRes.Contains("Access denied") || daRes.Contains("Forbidden")))
                             {
                                 AppendLog("❌ DA API Lỗi kết nối/xác thực (Vui lòng kiểm tra lại tài khoản DA PORT/DA USER): " + decodedDaRes, colorRed);
                             }
@@ -11232,11 +11232,19 @@ $cfg['SendErrorReports']              = 'never';
                             {
                                 bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
                                                         decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                                        decodedDaRes.IndexOf("user already exist", StringComparison.OrdinalIgnoreCase) >= 0;
+                                                        decodedDaRes.IndexOf("user already exist", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                        daRes.Contains("500");
 
                                 if (isAlreadyExists)
                                 {
-                                    AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
+                                    if (daRes.Contains("500"))
+                                    {
+                                        AppendLog("⚠️ DA API phản hồi lỗi 500 khi tạo DB (có thể do DB đã tồn tại). Thử đồng bộ password...", Color.FromArgb(245, 158, 11));
+                                    }
+                                    else
+                                    {
+                                        AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
+                                    }
                                     string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
                                                              "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                              "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
