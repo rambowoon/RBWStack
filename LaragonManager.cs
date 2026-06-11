@@ -11425,9 +11425,9 @@ $cfg['SendErrorReports']              = 'never';
                         AppendLog("🧹 Đang tự động dọn dẹp các tệp tạm trên hosting...", colorText);
                         string cleanupUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=cleanup";
                         string cleanupRes = PostHttp(cleanupUrl, "");
-                        if (!string.IsNullOrEmpty(cleanupRes) && cleanupRes.Contains("\"status\":\"success\""))
+                        if ((!string.IsNullOrEmpty(cleanupRes) && cleanupRes.Contains("\"status\":\"success\"")) || (cleanupRes != null && cleanupRes.Contains("404")))
                         {
-                            AppendLog("✅ Tự động dọn dẹp thành công! Đã tự hủy bridge.php.", colorGreen);
+                            AppendLog("✅ Tự động dọn dẹp thành công! File bridge.php đã tự hủy hoặc không tồn tại trên hosting.", colorGreen);
                         }
                         else
                         {
@@ -11497,9 +11497,9 @@ $cfg['SendErrorReports']              = 'never';
                     AppendLog("  Gửi yêu cầu tự hủy tới: " + cleanupUrl, colorDim);
                     string res = PostHttp(cleanupUrl, "");
                     
-                    if (!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\""))
+                    if ((!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\"")) || (res != null && res.Contains("404")))
                     {
-                        AppendLog("✅ Dọn dẹp thành công! Đã xóa dist.zip, dist.sql và tự hủy bridge.php.", colorGreen);
+                        AppendLog("✅ Dọn dẹp thành công! File bridge.php đã tự hủy hoặc không tồn tại trên hosting.", colorGreen);
                         this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate {
                             _lblApiStatus.Text = "Dọn dẹp thành công!";
                             _lblApiStatus.ForeColor = colorGreen;
