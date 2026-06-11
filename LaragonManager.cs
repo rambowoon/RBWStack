@@ -10096,6 +10096,18 @@ $cfg['SendErrorReports']              = 'never';
             if (string.IsNullOrEmpty(html)) return html;
             try
             {
+                // Inject CSS to reset image borders and enable high quality scaling in IE
+                string css = "<style>img { border: none !important; -ms-interpolation-mode: bicubic; }</style>";
+                if (html.IndexOf("<head>", StringComparison.OrdinalIgnoreCase) != -1)
+                {
+                    var regexHead = new Regex("<head>", RegexOptions.IgnoreCase);
+                    html = regexHead.Replace(html, "<head>" + css, 1);
+                }
+                else
+                {
+                    html = css + html;
+                }
+
                 var regex = new Regex(@"(<img\s+[^>]*src\s*=\s*(['""]))([^'"" >]+)(\2)", RegexOptions.IgnoreCase);
                 return regex.Replace(html, m =>
                 {
