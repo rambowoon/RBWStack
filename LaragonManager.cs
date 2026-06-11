@@ -11123,7 +11123,15 @@ $cfg['SendErrorReports']              = 'never';
                     bool clearDb = false;
                     bool skipImportDb = false;
 
-                    string mainUser = string.IsNullOrEmpty(daUser) ? ftpUser : daUser;
+                    string mainUser = daUser;
+                    if (string.IsNullOrEmpty(mainUser))
+                    {
+                        mainUser = ftpUser;
+                        if (mainUser.Contains("_"))
+                        {
+                            mainUser = mainUser.Split('_')[0];
+                        }
+                    }
                     string dbSuffix = _txtDbName != null && !string.IsNullOrWhiteSpace(_txtDbName.Text) ? _txtDbName.Text.Trim() : GenerateDemoDbSuffix(category, siteName);
                     finalDbName = mainUser + "_" + dbSuffix;
 
@@ -11214,34 +11222,50 @@ $cfg['SendErrorReports']              = 'never';
                             AppendLog("  DA API: Gửi yêu cầu tạo database " + finalDbName + "...", colorDim);
                             string daRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbPostData);
                             string decodedDaRes = Uri.UnescapeDataString(daRes);
-                            bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
-                                                    decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0;
+                            AppendLog("  DA API Response: " + decodedDaRes, colorDim);
 
-                            if (isAlreadyExists)
+                            if (daRes.StartsWith("error:") || daRes.Contains("Unauthorized") || daRes.Contains("Access denied") || daRes.Contains("Forbidden"))
                             {
-                                AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
-                                string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
-                                                         "&user=" + Uri.EscapeDataString(targetDbUser) + 
-                                                         "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
-                                                         "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
-                                string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
-                                if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
-                                {
-                                    AppendLog("❌ DA API Lỗi đồng bộ password: " + decodedDaPassRes, colorRed);
-                                }
-                                else
-                                {
-                                    AppendLog("✅ DA API: Đồng bộ password thành công.", colorGreen);
-                                }
-                            }
-                            else if (decodedDaRes.IndexOf("error=1", StringComparison.OrdinalIgnoreCase) >= 0 && decodedDaRes.IndexOf("exists", StringComparison.OrdinalIgnoreCase) < 0)
-                            {
-                                AppendLog("⚠️ DA API Cảnh báo: " + decodedDaRes, Color.FromArgb(245, 158, 11));
+                                AppendLog("❌ DA API Lỗi kết nối/xác thực (Vui lòng kiểm tra lại tài khoản DA PORT/DA USER): " + decodedDaRes, colorRed);
                             }
                             else
                             {
-                                AppendLog("✅ DA API: Tạo Database thành công.", colorGreen);
+                                bool isAlreadyExists = decodedDaRes.IndexOf("already exists", StringComparison.OrdinalIgnoreCase) >= 0 || 
+                                                        decodedDaRes.IndexOf("already user", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                        decodedDaRes.IndexOf("user already exist", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                                if (isAlreadyExists)
+                                {
+                                    AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
+                                    string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
+                                                             "&user=" + Uri.EscapeDataString(targetDbUser) + 
+                                                             "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
+                                                             "&passwd2=" + Uri.EscapeDataString(passwordToSet);
+                                    string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
+                                    string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
+                                    AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
+
+                                    if (daPassRes.StartsWith("error:") || daPassRes.Contains("Unauthorized") || daPassRes.Contains("Access denied"))
+                                    {
+                                        AppendLog("❌ DA API Lỗi kết nối khi đồng bộ password: " + decodedDaPassRes, colorRed);
+                                    }
+                                    else if (daPassRes.Contains("error=1") || !daPassRes.Contains("error=0"))
+                                    {
+                                        AppendLog("❌ DA API Lỗi đồng bộ password: " + decodedDaPassRes, colorRed);
+                                    }
+                                    else
+                                     {
+                                        AppendLog("✅ DA API: Đồng bộ password thành công.", colorGreen);
+                                    }
+                                }
+                                else if (decodedDaRes.IndexOf("error=1", StringComparison.OrdinalIgnoreCase) >= 0 && decodedDaRes.IndexOf("exists", StringComparison.OrdinalIgnoreCase) < 0)
+                                {
+                                    AppendLog("⚠️ DA API Cảnh báo: " + decodedDaRes, Color.FromArgb(245, 158, 11));
+                                }
+                                else
+                                {
+                                    AppendLog("✅ DA API: Tạo Database thành công.", colorGreen);
+                                }
                             }
                         }
                         else
@@ -11260,7 +11284,13 @@ $cfg['SendErrorReports']              = 'never';
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
                                 string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
                                 string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
-                                if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
+                                AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
+
+                                if (daPassRes.StartsWith("error:") || daPassRes.Contains("Unauthorized") || daPassRes.Contains("Access denied"))
+                                {
+                                    AppendLog("❌ DA API Lỗi kết nối khi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
+                                }
+                                else if (daPassRes.Contains("error=1") || !daPassRes.Contains("error=0"))
                                 {
                                     AppendLog("❌ DA API Lỗi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
                                 }
