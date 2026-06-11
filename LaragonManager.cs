@@ -4220,8 +4220,30 @@ $cfg['SendErrorReports']              = 'never';
             lblMailSubject.Font = new Font("Segoe UI", 11f, FontStyle.Bold);
             lblMailSubject.ForeColor = Color.FromArgb(30, 41, 59);
             lblMailSubject.Location = new Point(20, 15);
-            lblMailSubject.Size = new Size(410, 20);
+            lblMailSubject.Size = new Size(350, 20);
             pnlMailDetail.Controls.Add(lblMailSubject);
+
+            ModernButton btnZoomMail = new ModernButton();
+            btnZoomMail.Text = "Xem lớn ↗";
+            btnZoomMail.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            btnZoomMail.Location = new Point(380, 12);
+            btnZoomMail.Size = new Size(65, 24);
+            btnZoomMail.NormalColor = Color.White;
+            btnZoomMail.BorderColor = colorBorder;
+            btnZoomMail.Click += (s, e) => {
+                if (lstMailInbox.SelectedIndex != -1)
+                {
+                    var email = lstMailInbox.SelectedItem as CaughtEmail;
+                    if (email != null)
+                    {
+                        using (var form = new MailDetailForm(email))
+                        {
+                            form.ShowDialog(this);
+                        }
+                    }
+                }
+            };
+            pnlMailDetail.Controls.Add(btnZoomMail);
 
             lblMailFrom = new Label();
             lblMailFrom.Font = new Font("Segoe UI", 8.5f);
@@ -9343,6 +9365,7 @@ $cfg['SendErrorReports']              = 'never';
             {
                 int port = GetSmtpPort();
                 _smtpListener = new TcpListener(IPAddress.Loopback, port);
+                _smtpListener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 _smtpListener.Start();
                 _smtpRunning = true;
                 _smtpThread = new Thread(SmtpServerLoop);
@@ -9497,6 +9520,7 @@ $cfg['SendErrorReports']              = 'never';
         {
             try
             {
+                try { File.WriteAllText(ConfigHelper.GetDataFilePath("raw_email.txt"), rawEmail, Encoding.UTF8); } catch { }
                 string subject = "(No Subject)";
                 string body = "";
                 string contentType = "";
@@ -9955,7 +9979,178 @@ $cfg['SendErrorReports']              = 'never';
             lblMailDate.Text = "Thời gian: " + email.Date;
 
             string html = email.IsHtml ? email.Body : "<html><body><pre style='font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap;'>" + SimpleHtmlEncode(email.Body) + "</pre></body></html>";
+            
+            // Resolve relative/local paths
+            html = ResolveHtmlImageSources(html);
+            
             webMailBody.DocumentText = html;
+        }
+
+        public static string ResolveHtmlImageSources(string html)
+        {
+            if (string.IsNullOrEmpty(html)) return html;
+            try
+            {
+                var regex = new Regex(@"(<img\s+[^>]*src\s*=\s*(['""]))([^'"" >]+)(\2)", RegexOptions.IgnoreCase);
+                return regex.Replace(html, m =>
+                {
+                    string prefix = m.Groups[1].Value;
+                    string path = m.Groups[3].Value;
+                    string suffix = m.Groups[4].Value;
+
+                    if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                        path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                        path.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+                        path.StartsWith("cid:", StringComparison.OrdinalIgnoreCase) ||
+                        path.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return m.Value;
+                    }
+
+                    if (path.Length > 2 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+                    {
+                        string fileUrl = "file:///" + path.Replace('\\', '/');
+                        return prefix + fileUrl + suffix;
+                    }
+
+                    string resolved = ResolveRelativeImagePath(path);
+                    if (resolved != null)
+                    {
+                        return prefix + resolved + suffix;
+                    }
+
+                    return m.Value;
+                });
+            }
+            catch
+            {
+                return html;
+            }
+        }
+
+        public static string ResolveRelativeImagePath(string relativePath)
+        {
+            try
+            {
+                relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar).TrimStart(Path.DirectorySeparatorChar);
+                string wwwDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "www");
+                if (Directory.Exists(wwwDir))
+                {
+                    string fullPath = Path.Combine(wwwDir, relativePath);
+                    if (File.Exists(fullPath))
+                    {
+                        return "file:///" + fullPath.Replace('\\', '/');
+                    }
+
+                    foreach (string dir in Directory.GetDirectories(wwwDir, "*", SearchOption.AllDirectories))
+                    {
+                        string tryPath = Path.Combine(dir, relativePath);
+                        if (File.Exists(tryPath))
+                        {
+                            return "file:///" + tryPath.Replace('\\', '/');
+                        }
+                    }
+                }
+            }
+            catch { }
+            return null;
+        }
+    }
+
+    // =======================================================
+    // MAIL DETAIL ZOOM POPUP FORM
+    // =======================================================
+    public class MailDetailForm : Form
+    {
+        private WebBrowser webBody;
+        private Label lblSubject;
+        private Label lblFrom;
+        private Label lblTo;
+        private Label lblDate;
+
+        public MailDetailForm(CaughtEmail email)
+        {
+            this.Text = "Chi tiết Email - " + email.Subject;
+            this.Size = new Size(800, 600);
+            this.StartPosition = FormStartPosition.CenterParent;
+            this.MinimizeBox = false;
+            this.ShowIcon = false;
+            this.BackColor = Color.FromArgb(248, 250, 252); // Slate 50
+
+            // Header Panel
+            Panel pnlHeader = new Panel();
+            pnlHeader.Dock = DockStyle.Top;
+            pnlHeader.Height = 110;
+            pnlHeader.BackColor = Color.White;
+            pnlHeader.Padding = new Padding(20, 15, 20, 10);
+            pnlHeader.Paint += (s, e) => {
+                using (Pen pen = new Pen(Color.FromArgb(226, 232, 240), 1f)) // Slate 200
+                {
+                    e.Graphics.DrawLine(pen, 0, pnlHeader.Height - 1, pnlHeader.Width, pnlHeader.Height - 1);
+                }
+            };
+            this.Controls.Add(pnlHeader);
+
+            lblSubject = new Label();
+            lblSubject.Text = email.Subject;
+            lblSubject.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+            lblSubject.ForeColor = Color.FromArgb(30, 41, 59);
+            lblSubject.Location = new Point(20, 12);
+            lblSubject.Size = new Size(740, 24);
+            lblSubject.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            pnlHeader.Controls.Add(lblSubject);
+
+            lblFrom = new Label();
+            lblFrom.Text = "Từ: " + email.From;
+            lblFrom.Font = new Font("Segoe UI", 9f);
+            lblFrom.ForeColor = Color.FromArgb(100, 116, 139);
+            lblFrom.Location = new Point(20, 40);
+            lblFrom.Size = new Size(740, 18);
+            lblFrom.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            pnlHeader.Controls.Add(lblFrom);
+
+            lblTo = new Label();
+            lblTo.Text = "Đến: " + email.To;
+            lblTo.Font = new Font("Segoe UI", 9f);
+            lblTo.ForeColor = Color.FromArgb(100, 116, 139);
+            lblTo.Location = new Point(20, 58);
+            lblTo.Size = new Size(740, 18);
+            lblTo.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            pnlHeader.Controls.Add(lblTo);
+
+            lblDate = new Label();
+            lblDate.Text = "Thời gian: " + email.Date;
+            lblDate.Font = new Font("Segoe UI", 8.5f);
+            lblDate.ForeColor = Color.FromArgb(100, 116, 139);
+            lblDate.Location = new Point(20, 76);
+            lblDate.Size = new Size(740, 18);
+            lblDate.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            pnlHeader.Controls.Add(lblDate);
+
+            // Web Browser Container
+            Panel pnlBrowserWrap = new Panel();
+            pnlBrowserWrap.Dock = DockStyle.Fill;
+            pnlBrowserWrap.Padding = new Padding(20);
+            pnlBrowserWrap.BackColor = Color.FromArgb(248, 250, 252);
+            this.Controls.Add(pnlBrowserWrap);
+
+            webBody = new WebBrowser();
+            webBody.Dock = DockStyle.Fill;
+            webBody.ScriptErrorsSuppressed = true;
+            pnlBrowserWrap.Controls.Add(webBody);
+
+            string html = email.IsHtml ? email.Body : "<html><body><pre style='font-family: Consolas, monospace; font-size: 12px; white-space: pre-wrap;'>" + SimpleHtmlEncode(email.Body) + "</pre></body></html>";
+            
+            // Resolve relative paths in C# before loading
+            html = MainForm.ResolveHtmlImageSources(html);
+
+            webBody.DocumentText = html;
+        }
+
+        private static string SimpleHtmlEncode(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return "";
+            return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;").Replace("'", "&#39;");
         }
     }
 
