@@ -11245,11 +11245,11 @@ $cfg['SendErrorReports']              = 'never';
                                     {
                                         AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
                                     }
-                                    string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
+                                    string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
                                                              "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                              "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
                                                              "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                    string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
+                                    string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
                                     string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
                                     AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
 
@@ -11257,7 +11257,7 @@ $cfg['SendErrorReports']              = 'never';
                                     {
                                         AppendLog("❌ DA API Lỗi kết nối khi đồng bộ password: " + decodedDaPassRes, colorRed);
                                     }
-                                    else if (daPassRes.Contains("error=1"))
+                                    else if (daPassRes.Contains("error=1") || !daPassRes.Contains("error=0"))
                                     {
                                         AppendLog("❌ DA API Lỗi đồng bộ password: " + decodedDaPassRes, colorRed);
                                     }
@@ -11286,11 +11286,11 @@ $cfg['SendErrorReports']              = 'never';
                             else
                             {
                                 AppendLog("  DA API: Đang đổi mật khẩu của user \"" + targetDbUser + "\" thành mật khẩu đồng bộ...", colorDim);
-                                string dbModifyPostData = "action=modify&type=user&database=" + Uri.EscapeDataString(targetDbName) + 
+                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
                                                          "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                          "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
+                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
                                 string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
                                 AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
 
@@ -11298,7 +11298,7 @@ $cfg['SendErrorReports']              = 'never';
                                 {
                                     AppendLog("❌ DA API Lỗi kết nối khi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
                                 }
-                                else if (daPassRes.Contains("error=1"))
+                                else if (daPassRes.Contains("error=1") || !daPassRes.Contains("error=0"))
                                 {
                                     AppendLog("❌ DA API Lỗi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
                                 }
