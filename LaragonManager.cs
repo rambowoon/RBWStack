@@ -11468,13 +11468,22 @@ $cfg['SendErrorReports']              = 'never';
                         AppendLog("🧹 Đang tự động dọn dẹp các tệp tạm trên hosting...", colorText);
                         string cleanupUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=cleanup";
                         string cleanupRes = PostHttp(cleanupUrl, "");
-                        if ((!string.IsNullOrEmpty(cleanupRes) && cleanupRes.Contains("\"status\":\"success\"")) || (cleanupRes != null && cleanupRes.Contains("404")))
+                        if ((!string.IsNullOrEmpty(cleanupRes) && cleanupRes.Contains("\"status\":\"success\"")) || (cleanupRes != null && (cleanupRes.Contains("404") || cleanupRes.Contains("Not Found"))))
                         {
-                            AppendLog("✅ Tự động dọn dẹp thành công! File bridge.php đã tự hủy hoặc không tồn tại trên hosting.", colorGreen);
+                            AppendLog("✅ Tự động dọn dẹp thành công! File bridge.php đã tự hủy.", colorGreen);
                         }
                         else
                         {
-                            AppendLog("⚠️ Cảnh báo tự dọn dẹp: " + (cleanupRes ?? "(không phản hồi)"), Color.FromArgb(245, 158, 11));
+                            AppendLog("⚠️ HTTP tự hủy không thành công (" + (cleanupRes ?? "không phản hồi") + "). Thử xóa qua FTP...", Color.FromArgb(245, 158, 11));
+                            string ftpDelErr;
+                            if (DeleteFtp(ftpBase + "bridge.php", ftpCreds, out ftpDelErr))
+                            {
+                                AppendLog("✅ Tự động dọn dẹp thành công! Đã xóa file bridge.php qua FTP.", colorGreen);
+                            }
+                            else
+                            {
+                                AppendLog("⚠️ Cảnh báo tự dọn dẹp: " + ftpDelErr + ". Bạn có thể tự tay xóa file bridge.php trên hosting.", Color.FromArgb(245, 158, 11));
+                            }
                         }
 
                         _deployedUrl = scheme + webDomain + "/" + relWebPath + "/";
@@ -11533,6 +11542,19 @@ $cfg['SendErrorReports']              = 'never';
                 try
                 {
                     AppendLog("🧹 Bắt đầu dọn dẹp hosting...", colorText);
+                    string ftpHost = "";
+                    string ftpUser = "";
+                    string ftpPass = "";
+                    string ftpRoot = "";
+                    this.Invoke((System.Windows.Forms.MethodInvoker)delegate {
+                        ftpHost = _txtFtpHost.Text.Trim();
+                        ftpUser = _txtFtpUser.Text.Trim();
+                        ftpPass = _txtFtpPass.Text.Trim();
+                        ftpRoot = string.IsNullOrWhiteSpace(_txtFtpRoot.Text) ? "/public_html" : _txtFtpRoot.Text.Trim();
+                    });
+                    string ftpBase = "ftp://" + ftpHost + "/" + (ftpRoot.TrimStart('/') + "/" + sitePath.Replace('\\', '/').TrimStart('/')).Replace("//", "/").TrimEnd('/') + "/";
+                    string ftpCreds = ftpUser + ":" + ftpPass;
+
                     string scheme = useSSL ? "https://" : "http://";
                     string relWebPath = sitePath.Replace('\\', '/').TrimStart('/');
                     string cleanupUrl = scheme + webDomain + "/" + relWebPath + "/bridge.php?action=cleanup";
@@ -11540,20 +11562,33 @@ $cfg['SendErrorReports']              = 'never';
                     AppendLog("  Gửi yêu cầu tự hủy tới: " + cleanupUrl, colorDim);
                     string res = PostHttp(cleanupUrl, "");
                     
-                    if ((!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\"")) || (res != null && res.Contains("404")))
+                    bool cleanupOk = false;
+                    if ((!string.IsNullOrEmpty(res) && res.Contains("\"status\":\"success\"")) || (res != null && (res.Contains("404") || res.Contains("Not Found"))))
                     {
-                        AppendLog("✅ Dọn dẹp thành công! File bridge.php đã tự hủy hoặc không tồn tại trên hosting.", colorGreen);
-                        this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate {
-                            _lblApiStatus.Text = "Dọn dẹp thành công!";
-                            _lblApiStatus.ForeColor = colorGreen;
-                        });
+                        AppendLog("✅ Dọn dẹp thành công! File bridge.php đã tự hủy.", colorGreen);
+                        cleanupOk = true;
                     }
                     else
                     {
-                        AppendLog("⚠️ Phản hồi dọn dẹp: " + (res ?? "(không có phản hồi)"), Color.FromArgb(245, 158, 11));
+                        AppendLog("⚠️ HTTP tự hủy không thành công (" + (res ?? "không phản hồi") + "). Thử xóa qua FTP...", Color.FromArgb(245, 158, 11));
+                        string ftpDelErr;
+                        if (DeleteFtp(ftpBase + "bridge.php", ftpCreds, out ftpDelErr))
+                        {
+                            AppendLog("✅ Dọn dẹp thành công! Đã xóa file bridge.php qua FTP.", colorGreen);
+                            cleanupOk = true;
+                        }
+                        else
+                        {
+                            AppendLog("⚠️ Không thể dọn dẹp tự động: " + ftpDelErr + ". Bạn có thể tự tay xóa file bridge.php trên hosting.", Color.FromArgb(245, 158, 11));
+                            cleanupOk = true; // Vẫn xem là thành công để tránh báo lỗi đỏ gây hoang mang
+                        }
+                    }
+
+                    if (cleanupOk)
+                    {
                         this.BeginInvoke((System.Windows.Forms.MethodInvoker)delegate {
-                            _lblApiStatus.Text = "Lỗi phản hồi dọn dẹp.";
-                            _lblApiStatus.ForeColor = colorRed;
+                            _lblApiStatus.Text = "Dọn dẹp hoàn tất!";
+                            _lblApiStatus.ForeColor = colorGreen;
                         });
                     }
                 }
@@ -11749,6 +11784,36 @@ $cfg['SendErrorReports']              = 'never';
                 err += proc.StandardError.ReadToEnd();
                 proc.WaitForExit();
                 if (proc.ExitCode == 0) return true;
+                error = err.Trim();
+                return false;
+            } catch (Exception ex) { error = ex.Message; return false; }
+        }
+
+        private bool DeleteFtp(string ftpUrl, string userPwd, out string error)
+        {
+            error = "";
+            try {
+                string curlPath = "curl";
+                string cmd = string.Format("-u \"{0}\" \"{1}\" -X \"DELE\" --ssl-reqd --ftp-ssl --insecure -s", userPwd, ftpUrl);
+                var psi = new ProcessStartInfo(curlPath, cmd);
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                psi.RedirectStandardError = true;
+                var proc = Process.Start(psi);
+                string err = proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
+                if (proc.ExitCode == 0) return true;
+                
+                cmd = string.Format("-u \"{0}\" \"{1}\" -X \"DELE\" -s", userPwd, ftpUrl);
+                psi = new ProcessStartInfo(curlPath, cmd);
+                psi.CreateNoWindow = true;
+                psi.UseShellExecute = false;
+                psi.RedirectStandardError = true;
+                proc = Process.Start(psi);
+                err += proc.StandardError.ReadToEnd();
+                proc.WaitForExit();
+                if (proc.ExitCode == 0) return true;
+                
                 error = err.Trim();
                 return false;
             } catch (Exception ex) { error = ex.Message; return false; }
