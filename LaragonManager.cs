@@ -11187,7 +11187,7 @@ $cfg['SendErrorReports']              = 'never';
                     if (!dbCheckSuccess)
                     {
                         // Wrong password or env doesn't have it
-                        AppendLog("🔑 Cấu hình sai mật khẩu hoặc chưa có Database. Tiến hành tự động đồng bộ lại mật khẩu...", Color.FromArgb(245, 158, 11));
+                        AppendLog("🔑 Cấu hình sai mật khẩu hoặc chưa có Database. Tiến hành tự động đổi mật khẩu và đồng bộ lại...", Color.FromArgb(245, 158, 11));
                         
                         string passwordToSet = "";
                         if (!string.IsNullOrEmpty(envDbPass))
@@ -11315,7 +11315,7 @@ $cfg['SendErrorReports']              = 'never';
                         }
 
                         // Check connection again after sync
-                        AppendLog("🔎 Đang kiểm tra lại kết nối Database...", colorText);
+                        AppendLog("🔎 Đang kiểm tra lại kết nối Database sau khi đổi mật khẩu...", colorText);
                         string checkDbConfig2 = "{\"host\":\"localhost\",\"name\":\"" + targetDbName.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
                                                "\",\"user\":\"" + targetDbUser.Replace("\\", "\\\\").Replace("\"", "\\\"") + 
                                                "\",\"pass\":\"" + finalDbPass.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
@@ -11323,8 +11323,13 @@ $cfg['SendErrorReports']              = 'never';
                         string checkRes2 = PostHttp(checkDbUrl, checkPostData2);
                         if (!string.IsNullOrEmpty(checkRes2) && checkRes2.Contains("\"status\":\"success\""))
                         {
+                            dbCheckSuccess = true;
                             dbHasData = System.Text.RegularExpressions.Regex.IsMatch(checkRes2, @"""has_data""\s*:\s*true", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                            AppendLog("✅ Kết nối Database thành công sau khi đồng bộ mật khẩu.", colorGreen);
+                            AppendLog("✅ Kết nối Database thành công sau khi đồng bộ mật khẩu. (Có dữ liệu: " + (dbHasData ? "Có" : "Không") + ")", colorGreen);
+                        }
+                        else
+                        {
+                            AppendLog("⚠️ Kết nối Database sau khi đổi mật khẩu vẫn thất bại: " + (checkRes2 ?? "không phản hồi"), Color.FromArgb(245, 158, 11));
                         }
                     }
 
