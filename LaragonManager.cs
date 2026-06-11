@@ -11257,7 +11257,7 @@ $cfg['SendErrorReports']              = 'never';
                                     {
                                         AppendLog("❌ DA API Lỗi kết nối khi đồng bộ password: " + decodedDaPassRes, colorRed);
                                     }
-                                    else if (daPassRes.Contains("error=1") || !daPassRes.Contains("error=0"))
+                                    else if (daPassRes.Contains("error=1"))
                                     {
                                         AppendLog("❌ DA API Lỗi đồng bộ password: " + decodedDaPassRes, colorRed);
                                     }
@@ -11298,7 +11298,7 @@ $cfg['SendErrorReports']              = 'never';
                                 {
                                     AppendLog("❌ DA API Lỗi kết nối khi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
                                 }
-                                else if (daPassRes.Contains("error=1") || !daPassRes.Contains("error=0"))
+                                else if (daPassRes.Contains("error=1"))
                                 {
                                     AppendLog("❌ DA API Lỗi đổi mật khẩu DB: " + decodedDaPassRes, colorRed);
                                 }
