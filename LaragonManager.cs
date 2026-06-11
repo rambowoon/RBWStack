@@ -11222,7 +11222,7 @@ $cfg['SendErrorReports']              = 'never';
                             AppendLog("  DA API: Gửi yêu cầu tạo database " + finalDbName + "...", colorDim);
                             string daRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbPostData);
                             string decodedDaRes = Uri.UnescapeDataString(daRes);
-                            AppendLog("  DA API Response: " + decodedDaRes, colorDim);
+                            // AppendLog("  DA API Response: " + decodedDaRes, colorDim);
 
                             if (daRes.StartsWith("error:") && !daRes.Contains("500") && (daRes.Contains("Unauthorized") || daRes.Contains("Access denied") || daRes.Contains("Forbidden")))
                             {
@@ -11251,7 +11251,7 @@ $cfg['SendErrorReports']              = 'never';
                                                              "&passwd2=" + Uri.EscapeDataString(passwordToSet);
                                     string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
                                     string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
-                                    AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
+                                    // AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
 
                                     if (daPassRes.StartsWith("error:") || daPassRes.Contains("Unauthorized") || daPassRes.Contains("Access denied"))
                                     {
@@ -11292,7 +11292,7 @@ $cfg['SendErrorReports']              = 'never';
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
                                 string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
                                 string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
-                                AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
+                                // AppendLog("  DA API Modify Response: " + decodedDaPassRes, colorDim);
 
                                 if (daPassRes.StartsWith("error:") || daPassRes.Contains("Unauthorized") || daPassRes.Contains("Access denied"))
                                 {
