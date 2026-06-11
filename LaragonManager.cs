@@ -11174,7 +11174,7 @@ $cfg['SendErrorReports']              = 'never';
                         if (!string.IsNullOrEmpty(checkRes) && checkRes.Contains("\"status\":\"success\""))
                         {
                             dbCheckSuccess = true;
-                            dbHasData = checkRes.Contains("\"has_data\":true");
+                            dbHasData = System.Text.RegularExpressions.Regex.IsMatch(checkRes, @"""has_data""\s*:\s*true", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                             finalDbPass = targetDbPass;
                             AppendLog("✅ Kết nối Database thành công.", colorGreen);
                         }
@@ -11220,11 +11220,11 @@ $cfg['SendErrorReports']              = 'never';
                             if (isAlreadyExists)
                             {
                                 AppendLog("  DA API: Database đã tồn tại, tiến hành đồng bộ password...", Color.FromArgb(245, 158, 11));
-                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
+                                string dbModifyPostData = "action=modify&db=" + Uri.EscapeDataString(targetDbName) + 
                                                          "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                          "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
+                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
                                 string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
                                 if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
                                 {
@@ -11254,11 +11254,11 @@ $cfg['SendErrorReports']              = 'never';
                             else
                             {
                                 AppendLog("  DA API: Đang đổi mật khẩu của user \"" + targetDbUser + "\" thành mật khẩu đồng bộ...", colorDim);
-                                string dbModifyPostData = "action=modify&database=" + Uri.EscapeDataString(targetDbName) + 
+                                string dbModifyPostData = "action=modify&db=" + Uri.EscapeDataString(targetDbName) + 
                                                          "&user=" + Uri.EscapeDataString(targetDbUser) + 
                                                          "&passwd=" + Uri.EscapeDataString(passwordToSet) + 
                                                          "&passwd2=" + Uri.EscapeDataString(passwordToSet);
-                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DB_USER");
+                                string daPassRes = CallDirectAdminDbApi(ftpHost, daPort, mainUser, ftpPass, dbModifyPostData, "CMD_API_DATABASES");
                                 string decodedDaPassRes = Uri.UnescapeDataString(daPassRes);
                                 if (daPassRes.Contains("error=1") || daPassRes.StartsWith("error:") || !daPassRes.Contains("error=0") || daPassRes.Contains("Access denied") || daPassRes.Contains("Unauthorized"))
                                 {
@@ -11323,7 +11323,7 @@ $cfg['SendErrorReports']              = 'never';
                         string checkRes2 = PostHttp(checkDbUrl, checkPostData2);
                         if (!string.IsNullOrEmpty(checkRes2) && checkRes2.Contains("\"status\":\"success\""))
                         {
-                            dbHasData = checkRes2.Contains("\"has_data\":true");
+                            dbHasData = System.Text.RegularExpressions.Regex.IsMatch(checkRes2, @"""has_data""\s*:\s*true", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                             AppendLog("✅ Kết nối Database thành công sau khi đồng bộ mật khẩu.", colorGreen);
                         }
                     }
