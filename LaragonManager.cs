@@ -9997,6 +9997,100 @@ $cfg['SendErrorReports']              = 'never';
             webMailBody.DocumentText = html;
         }
 
+        private static Dictionary<string, string> _webpToPngCache = new Dictionary<string, string>();
+
+        public static string ConvertWebpToPng(string webpPath)
+        {
+            if (string.IsNullOrEmpty(webpPath) || !File.Exists(webpPath)) return null;
+
+            lock (_webpToPngCache)
+            {
+                if (_webpToPngCache.ContainsKey(webpPath))
+                {
+                    string cachedPath = _webpToPngCache[webpPath];
+                    if (File.Exists(cachedPath))
+                    {
+                        return cachedPath;
+                    }
+                }
+
+                try
+                {
+                    string tmpDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"tmp\mail_images");
+                    if (!Directory.Exists(tmpDir))
+                    {
+                        Directory.CreateDirectory(tmpDir);
+                    }
+
+                    string pngPath = Path.Combine(tmpDir, Guid.NewGuid().ToString() + ".png");
+
+                    string phpExe = null;
+                    if (Instance != null && !string.IsNullOrEmpty(Instance.pathPhpExe))
+                    {
+                        phpExe = Instance.pathPhpExe;
+                        if (!Path.IsPathRooted(phpExe))
+                        {
+                            phpExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, phpExe);
+                        }
+                    }
+
+                    if (string.IsNullOrEmpty(phpExe) || !File.Exists(phpExe))
+                    {
+                        phpExe = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"bin\php\php.exe");
+                    }
+
+                    if (!File.Exists(phpExe))
+                    {
+                        string phpBinDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"bin\php");
+                        if (Directory.Exists(phpBinDir))
+                        {
+                            foreach (var sub in Directory.GetDirectories(phpBinDir))
+                            {
+                                string tryPhp = Path.Combine(sub, "php.exe");
+                                if (File.Exists(tryPhp))
+                                {
+                                    phpExe = tryPhp;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (!File.Exists(phpExe)) return null;
+
+                    string escapedWebp = webpPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string escapedPng = pngPath.Replace("\\", "\\\\").Replace("'", "\\'");
+                    string phpCode = string.Format(
+                        "$img = @imagecreatefromwebp('{0}'); if ($img) {{ @imagepng($img, '{1}'); @imagedestroy($img); }}",
+                        escapedWebp, escapedPng
+                    );
+
+                    var startInfo = new ProcessStartInfo
+                    {
+                        FileName = phpExe,
+                        Arguments = "-r \"" + phpCode.Replace("\"", "\\\"") + "\"",
+                        CreateNoWindow = true,
+                        UseShellExecute = false,
+                        WindowStyle = ProcessWindowStyle.Hidden
+                    };
+
+                    using (var process = Process.Start(startInfo))
+                    {
+                        process.WaitForExit(5000);
+                    }
+
+                    if (File.Exists(pngPath))
+                    {
+                        _webpToPngCache[webpPath] = pngPath;
+                        return pngPath;
+                    }
+                }
+                catch { }
+
+                return null;
+            }
+        }
+
         public static string ResolveHtmlImageSources(string html)
         {
             if (string.IsNullOrEmpty(html)) return html;
@@ -10009,25 +10103,62 @@ $cfg['SendErrorReports']              = 'never';
                     string path = m.Groups[3].Value;
                     string suffix = m.Groups[4].Value;
 
+                    bool isLocalUrl = false;
+                    string localRemainder = "";
+
                     if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith("cid:", StringComparison.OrdinalIgnoreCase) ||
-                        path.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
+                        path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var urlMatch = Regex.Match(path, @"^https?://([^/]+)/(.*)$", RegexOptions.IgnoreCase);
+                        if (urlMatch.Success)
+                        {
+                            string host = urlMatch.Groups[1].Value.ToLower();
+                            string remainder = urlMatch.Groups[2].Value;
+
+                            if (host == "localhost" || host == "127.0.0.1" || host.EndsWith(".local"))
+                            {
+                                isLocalUrl = true;
+                                localRemainder = remainder;
+                            }
+                        }
+
+                        if (!isLocalUrl)
+                        {
+                            return m.Value;
+                        }
+                    }
+                    else if (path.StartsWith("data:", StringComparison.OrdinalIgnoreCase) ||
+                             path.StartsWith("cid:", StringComparison.OrdinalIgnoreCase) ||
+                             path.StartsWith("file://", StringComparison.OrdinalIgnoreCase))
                     {
                         return m.Value;
                     }
 
-                    if (path.Length > 2 && path[1] == ':' && (path[2] == '\\' || path[2] == '/'))
+                    string relativePath = isLocalUrl ? localRemainder : path;
+                    string resolvedPath = null;
+
+                    if (relativePath.Length > 2 && relativePath[1] == ':' && (relativePath[2] == '\\' || relativePath[2] == '/'))
                     {
-                        string fileUrl = "file:///" + path.Replace('\\', '/');
-                        return prefix + fileUrl + suffix;
+                        resolvedPath = relativePath;
+                    }
+                    else
+                    {
+                        resolvedPath = ResolveRelativeImagePath(relativePath);
                     }
 
-                    string resolved = ResolveRelativeImagePath(path);
-                    if (resolved != null)
+                    if (resolvedPath != null)
                     {
-                        return prefix + resolved + suffix;
+                        if (resolvedPath.EndsWith(".webp", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string pngPath = ConvertWebpToPng(resolvedPath);
+                            if (pngPath != null)
+                            {
+                                resolvedPath = pngPath;
+                            }
+                        }
+
+                        string fileUrl = "file:///" + resolvedPath.Replace('\\', '/');
+                        return prefix + fileUrl + suffix;
                     }
 
                     return m.Value;
@@ -10050,7 +10181,7 @@ $cfg['SendErrorReports']              = 'never';
                     string fullPath = Path.Combine(wwwDir, relativePath);
                     if (File.Exists(fullPath))
                     {
-                        return "file:///" + fullPath.Replace('\\', '/');
+                        return fullPath;
                     }
 
                     foreach (string dir in Directory.GetDirectories(wwwDir, "*", SearchOption.AllDirectories))
@@ -10058,7 +10189,7 @@ $cfg['SendErrorReports']              = 'never';
                         string tryPath = Path.Combine(dir, relativePath);
                         if (File.Exists(tryPath))
                         {
-                            return "file:///" + tryPath.Replace('\\', '/');
+                            return tryPath;
                         }
                     }
                 }
