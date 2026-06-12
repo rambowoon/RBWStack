@@ -13275,7 +13275,6 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
 
             Panel pnlCard = new Panel();
             pnlCard.Width = flpResults.Width - 25;
-            pnlCard.Height = 122;
             pnlCard.BackColor = Color.White;
 
             pnlCard.Paint += (s, pe) => {
@@ -13319,9 +13318,12 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
 
             FlowLayoutPanel flpVars = new FlowLayoutPanel();
             flpVars.Location = new Point(12, 52);
-            flpVars.Size = new Size(pnlCard.Width - 24, 26);
-            flpVars.AutoScroll = true;
+            flpVars.Width = pnlCard.Width - 24;
             flpVars.BackColor = Color.FromArgb(248, 250, 252);
+            flpVars.AutoSize = true;
+            flpVars.AutoScroll = false;
+            flpVars.FlowDirection = FlowDirection.LeftToRight;
+            flpVars.WrapContents = true;
             pnlCard.Controls.Add(flpVars);
 
             var checkboxes = new List<CheckBox>();
@@ -13333,9 +13335,18 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 chk.ForeColor = Color.FromArgb(51, 65, 85);
                 chk.AutoSize = true;
                 chk.Tag = v;
+                if (!isLocal) chk.Checked = true; // Mặc định Google Font sẽ chọn hết
                 flpVars.Controls.Add(chk);
                 checkboxes.Add(chk);
             }
+
+            // Đo và thiết lập chiều cao thực tế cho flpVars
+            int varsHeight = flpVars.GetPreferredSize(new Size(flpVars.Width, 0)).Height;
+            if (varsHeight < 26) varsHeight = 26;
+            flpVars.Height = varsHeight;
+
+            int Y_button = flpVars.Bottom + 10;
+            pnlCard.Height = Y_button + 28 + 12;
 
             if (isLocal)
             {
@@ -13348,7 +13359,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnInstall.HoverColor = Color.FromArgb(37, 99, 235);
                 btnInstall.ForeColor = Color.White;
                 btnInstall.Size = new Size(160, 28);
-                btnInstall.Location = new Point(12, 84);
+                btnInstall.Location = new Point(12, Y_button);
                 btnInstall.Click += (s, e) => {
                     var selected = new List<string>();
                     foreach (var chk in checkboxes)
@@ -13372,7 +13383,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnToggle.BorderColor = Color.FromArgb(209, 213, 219);
                 btnToggle.ForeColor = Color.FromArgb(55, 65, 81);
                 btnToggle.Size = new Size(80, 28);
-                btnToggle.Location = new Point(180, 84);
+                btnToggle.Location = new Point(180, Y_button);
                 btnToggle.Click += (s, e) => {
                     bool allChecked = true;
                     foreach (var chk in checkboxes) { if (!chk.Checked) allChecked = false; }
@@ -13392,13 +13403,10 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnImport.HoverColor = Color.FromArgb(124, 58, 237);
                 btnImport.ForeColor = Color.White;
                 btnImport.Size = new Size(130, 28);
-                btnImport.Location = new Point(12, 84);
+                btnImport.Location = new Point(12, Y_button);
                 btnImport.Click += (s, e) => {
-                    var selected = new List<string>();
-                    foreach (var chk in checkboxes)
-                    {
-                        if (chk.Checked) selected.Add((string)chk.Tag);
-                    }
+                    // Google Font tự động chèn hết các biến thể, không cần chọn
+                    var selected = new List<string>(gInfo.Variants);
                     AddGoogleFontImport(gInfo, selected);
                 };
                 pnlCard.Controls.Add(btnImport);
@@ -13410,13 +13418,10 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnDownload.HoverColor = Color.FromArgb(5, 150, 105);
                 btnDownload.ForeColor = Color.White;
                 btnDownload.Size = new Size(180, 28);
-                btnDownload.Location = new Point(150, 84);
+                btnDownload.Location = new Point(150, Y_button);
                 btnDownload.Click += (s, e) => {
-                    var selected = new List<string>();
-                    foreach (var chk in checkboxes)
-                    {
-                        if (chk.Checked) selected.Add((string)chk.Tag);
-                    }
+                    // Google Font tự động chèn hết các biến thể, không cần chọn
+                    var selected = new List<string>(gInfo.Variants);
                     DownloadGoogleFontSelfHost(gInfo, selected);
                 };
                 pnlCard.Controls.Add(btnDownload);
@@ -13429,7 +13434,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnToggle.BorderColor = Color.FromArgb(209, 213, 219);
                 btnToggle.ForeColor = Color.FromArgb(55, 65, 81);
                 btnToggle.Size = new Size(70, 28);
-                btnToggle.Location = new Point(340, 84);
+                btnToggle.Location = new Point(340, Y_button);
                 btnToggle.Click += (s, e) => {
                     bool allChecked = true;
                     foreach (var chk in checkboxes) { if (!chk.Checked) allChecked = false; }
