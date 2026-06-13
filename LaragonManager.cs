@@ -13317,9 +13317,12 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
 
             FlowLayoutPanel flpVars = new FlowLayoutPanel();
             flpVars.Location = new Point(12, 52);
-            flpVars.Width = pnlCard.Width - 24;
+            int flpWidth = pnlCard.Width - 24;
+            flpVars.Width = flpWidth;
+            flpVars.MaximumSize = new Size(flpWidth, 0);
             flpVars.BackColor = Color.FromArgb(248, 250, 252);
             flpVars.AutoSize = true;
+            flpVars.AutoSizeMode = AutoSizeMode.GrowAndShrink;
             flpVars.AutoScroll = false;
             flpVars.FlowDirection = FlowDirection.LeftToRight;
             flpVars.WrapContents = true;
@@ -13334,13 +13337,14 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 chk.ForeColor = Color.FromArgb(51, 65, 85);
                 chk.AutoSize = true;
                 chk.Tag = v;
-                if (!isLocal) chk.Checked = true; // Mặc định Google Font sẽ chọn hết
+                if (!isLocal) chk.Checked = true;
                 flpVars.Controls.Add(chk);
                 checkboxes.Add(chk);
             }
 
-            // Đo và thiết lập chiều cao thực tế cho flpVars
-            int varsHeight = flpVars.GetPreferredSize(new Size(flpVars.Width, 0)).Height;
+            // Để AutoSize tự tính, đo lại sau khi đã add controls
+            flpVars.PerformLayout();
+            int varsHeight = flpVars.PreferredSize.Height;
             if (varsHeight < 26) varsHeight = 26;
             flpVars.Height = varsHeight;
 
