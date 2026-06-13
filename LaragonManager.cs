@@ -11892,32 +11892,38 @@ $cfg['SendErrorReports']              = 'never';
                                 string remoteEnvTemp2 = Path.Combine(tempDir, "remote_env_write_" + jobId);
                                 string remoteEnvUrl2 = ftpBase + ".env";
                                 string ftpErr2;
-                                List<string> envLines = new List<string>();
-                                if (DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2) && File.Exists(remoteEnvTemp2))
+                                bool downloadSuccess = DownloadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                                if (downloadSuccess && File.Exists(remoteEnvTemp2) && new FileInfo(remoteEnvTemp2).Length > 0)
                                 {
+                                    List<string> envLines = new List<string>();
                                     envLines.AddRange(File.ReadAllLines(remoteEnvTemp2));
                                     File.Delete(remoteEnvTemp2);
-                                }
-                                
-                                bool updated = false;
-                                for (int i = 0; i < envLines.Count; i++)
-                                {
-                                    if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
+
+                                    bool updated = false;
+                                    for (int i = 0; i < envLines.Count; i++)
                                     {
-                                        string keyName = envLines[i].Split('=')[0].Trim();
-                                        envLines[i] = keyName + "=" + passwordToSet;
-                                        updated = true;
+                                        if (Regex.IsMatch(envLines[i], @"^\s*DB_PASSWORD\s*=") || Regex.IsMatch(envLines[i], @"^\s*DB_PASS\s*="))
+                                        {
+                                            string keyName = envLines[i].Split('=')[0].Trim();
+                                            envLines[i] = keyName + "=" + passwordToSet;
+                                            updated = true;
+                                        }
                                     }
+                                    if (!updated)
+                                    {
+                                        envLines.Add("DB_PASSWORD=" + passwordToSet);
+                                    }
+
+                                    File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
+                                    UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
+                                    File.Delete(remoteEnvTemp2);
+                                    AppendLog("✅ Đã cập nhật mật khẩu mới vào file .env trên hosting.", colorGreen);
                                 }
-                                if (!updated)
+                                else
                                 {
-                                    envLines.Add("DB_PASSWORD=" + passwordToSet);
+                                    if (File.Exists(remoteEnvTemp2)) File.Delete(remoteEnvTemp2);
+                                    AppendLog("⚠️ Cảnh báo: Không thể tải file .env từ hosting. Bỏ qua việc đồng bộ mật khẩu .env để tránh lỗi tệp tin.", colorOrange);
                                 }
-                                
-                                File.WriteAllLines(remoteEnvTemp2, envLines.ToArray());
-                                UploadFtp(remoteEnvUrl2, ftpCreds, remoteEnvTemp2, out ftpErr2);
-                                File.Delete(remoteEnvTemp2);
-                                AppendLog("✅ Đã cập nhật mật khẩu mới vào file .env trên hosting.", colorGreen);
                             }
                             catch (Exception ex)
                             {
