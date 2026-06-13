@@ -8807,7 +8807,7 @@ $cfg['SendErrorReports']              = 'never';
                 txtSearchSites.Name = "txtSearchSites";
                 txtSearchSites.Font = new Font("Segoe UI", 8.5f);
                 txtSearchSites.Location = new Point(20, 65);
-                txtSearchSites.Size = new Size(250, 23);
+                txtSearchSites.Size = new Size(680, 23);
                 txtSearchSites.TextChanged += (s, e) => {
                     RenderSitesList();
                 };
