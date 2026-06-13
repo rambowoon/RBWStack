@@ -8800,14 +8800,14 @@ $cfg['SendErrorReports']              = 'never';
                 lblSitesDesc.Font = new Font("Segoe UI Italic", 8.5f);
                 lblSitesDesc.ForeColor = colorTextDim;
                 lblSitesDesc.Location = new Point(20, 40);
-                lblSitesDesc.Size = new Size(490, 20);
+                lblSitesDesc.Size = new Size(680, 20);
                 pnlTabSites.Controls.Add(lblSitesDesc);
 
                 TextBox txtSearchSites = new TextBox();
                 txtSearchSites.Name = "txtSearchSites";
                 txtSearchSites.Font = new Font("Segoe UI", 8.5f);
-                txtSearchSites.Location = new Point(520, 36);
-                txtSearchSites.Size = new Size(160, 23);
+                txtSearchSites.Location = new Point(20, 65);
+                txtSearchSites.Size = new Size(250, 23);
                 txtSearchSites.TextChanged += (s, e) => {
                     RenderSitesList();
                 };
@@ -8816,8 +8816,8 @@ $cfg['SendErrorReports']              = 'never';
 
                 pnlSitesContainer = new Panel();
                 pnlSitesContainer.Name = "pnlSitesContainer";
-                pnlSitesContainer.Size = new Size(720, 480);
-                pnlSitesContainer.Location = new Point(20, 65);
+                pnlSitesContainer.Size = new Size(720, 450);
+                pnlSitesContainer.Location = new Point(20, 95);
                 pnlSitesContainer.BackColor = Color.Transparent;
                 pnlSitesContainer.AutoScroll = true;
                 pnlTabSites.Controls.Add(pnlSitesContainer);
