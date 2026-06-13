@@ -13133,7 +13133,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     foreach (var file in files)
                     {
                         string ext = Path.GetExtension(file).ToLower().TrimStart('.');
-                        bool isWoff = (ext == "woff" || ext == "woff2");
+                        bool isWoff = (ext == "woff" || ext == "woff2" || ext == "ttf" || ext == "otf");
                         if (isWoff)
                         {
                             string relPath = file.Substring(fontSource.Length).TrimStart('\\', '/');
@@ -13154,7 +13154,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                                 {
                                     Id = fontId,
                                     Family = familyPrefix,
-                                    Category = "Local Library",
+                                    Category = ext == "ttf" ? "Local TTF" : (ext == "otf" ? "Local OTF" : "Local Library"),
                                     Files = new List<LocalFontFile>()
                                 };
                             }
@@ -13499,12 +13499,11 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     sb.AppendLine(string.Format("  font-weight: {0};", weight));
                     sb.AppendLine("  font-display: swap;");
 
+                    var extRank = new Dictionary<string, int> { {"woff2",0}, {"woff",1}, {"ttf",2}, {"otf",3} };
                     vFiles.Sort((a, b) => {
-                        if (a.Extension == "woff2") return -1;
-                        if (b.Extension == "woff2") return 1;
-                        if (a.Extension == "woff") return -1;
-                        if (b.Extension == "woff") return 1;
-                        return 0;
+                        int ra = extRank.ContainsKey(a.Extension) ? extRank[a.Extension] : 4;
+                        int rb = extRank.ContainsKey(b.Extension) ? extRank[b.Extension] : 4;
+                        return ra.CompareTo(rb);
                     });
 
                     // Deduplicate theo FileName để tránh trùng src
