@@ -13470,6 +13470,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 string fontsCssDir = Path.GetDirectoryName(fontsCssPath);
                 if (!Directory.Exists(fontsCssDir)) Directory.CreateDirectory(fontsCssDir);
 
+                bool isDuplicate = false;
                 if (File.Exists(fontsCssPath))
                 {
                     string currentCss = File.ReadAllText(fontsCssPath);
@@ -13479,9 +13480,16 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                         currentCss.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         currentCss.IndexOf("font-family: \"" + cleanFolderName + "\"", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
+                        isDuplicate = true;
                         var dr = MessageBox.Show(string.Format("Font '{0}' đã tồn tại trong file fonts.css. Bạn có muốn tiếp tục cài đặt không?", group.Family), "Trùng font", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                         if (dr == DialogResult.No) return;
                     }
+                }
+
+                if (!isDuplicate)
+                {
+                    var dr = MessageBox.Show(string.Format("Bạn có chắc chắn muốn cài đặt local font '{0}' vào dự án không?", group.Family), "Xác nhận cài đặt", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (dr == DialogResult.No) return;
                 }
 
                 var copiedFiles = new Dictionary<string, List<LocalFontFile>>();
@@ -13562,8 +13570,34 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
 
                 string existing = File.Exists(fontsCssPath) ? File.ReadAllText(fontsCssPath) : "";
 
+                string cleanFamily = info.Family.Replace(" ", "+");
+                bool isDuplicate = false;
+
                 // Kiểm tra trùng URL đầy đủ trước
-                if (existing.IndexOf(gUrl, StringComparison.OrdinalIgnoreCase) >= 0) return;
+                if (existing.IndexOf(gUrl, StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    MessageBox.Show(string.Format("Google Font '{0}' với các biến thể này đã được thêm trong fonts.css rồi.", info.Family), 
+                        "Thông báo trùng", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                // Kiểm tra trùng font family trong file fonts.css
+                if (existing.IndexOf("family=" + cleanFamily, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    existing.IndexOf("font-family: '" + info.Family + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    existing.IndexOf("font-family: \"" + info.Family + "\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    isDuplicate = true;
+                    var dr = MessageBox.Show(string.Format("Google Font '{0}' đã tồn tại trong file fonts.css.\nBạn có chắc chắn muốn cài đặt đè/cập nhật không?", info.Family), 
+                        "Xác nhận cài đặt trùng", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (dr == DialogResult.No) return;
+                }
+
+                if (!isDuplicate)
+                {
+                    var dr = MessageBox.Show(string.Format("Bạn có chắc chắn muốn liên kết Google Font '{0}' vào dự án không?", info.Family), 
+                        "Xác nhận cài đặt", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (dr == DialogResult.No) return;
+                }
 
                 // Nếu có URL cũ (thiếu variants) của cùng font, xóa dòng đó trước
                 string simplePattern = "@import url(" + "https://fonts.googleapis.com/css2?family=" + info.Family.Replace(" ", "+") + "&display=swap)";
@@ -14067,6 +14101,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 string fontsCssDir = Path.GetDirectoryName(fontsCssPath);
                 if (!Directory.Exists(fontsCssDir)) Directory.CreateDirectory(fontsCssDir);
 
+                bool isDuplicate = false;
                 if (File.Exists(fontsCssPath))
                 {
                     string cur = File.ReadAllText(fontsCssPath);
@@ -14076,10 +14111,17 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                         cur.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         cur.IndexOf("font-family: \"" + cleanFolderName + "\"", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
+                        isDuplicate = true;
                         var dr = MessageBox.Show(string.Format("Font '{0}' đã tồn tại trong fonts.css. Tiếp tục?", group.Family),
                             "Trùng font", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                         if (dr == DialogResult.No) return;
                     }
+                }
+
+                if (!isDuplicate)
+                {
+                    var dr = MessageBox.Show(string.Format("Bạn có chắc chắn muốn convert và cài đặt local font '{0}' vào dự án không?", group.Family), "Xác nhận cài đặt", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                    if (dr == DialogResult.No) return;
                 }
 
                 // Nhóm file theo variant
