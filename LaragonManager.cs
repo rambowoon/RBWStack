@@ -13184,17 +13184,20 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 }
 
                 var googleResults = new List<GoogleFontInfo>();
+                var googleFonts = FetchGoogleFonts();
                 if (!string.IsNullOrEmpty(query))
                 {
-                    var googleFonts = FetchGoogleFonts();
                     string queryLower = query.ToLower();
                     foreach (var g in googleFonts)
                     {
                         if (g.Family.ToLower().Contains(queryLower))
-                        {
                             googleResults.Add(g);
-                        }
                     }
+                }
+                else
+                {
+                    // Khi không có query: hiện tất cả Google Fonts (giới hạn để tránh lag)
+                    googleResults.AddRange(googleFonts);
                 }
 
                 var combined = new List<object>();
