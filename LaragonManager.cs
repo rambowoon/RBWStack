@@ -12311,7 +12311,11 @@ $cfg['SendErrorReports']              = 'never';
             error = "";
             try {
                 string curlPath = "curl";
-                string cmd = string.Format("-T \"{0}\" --ftp-create-dirs -u \"{1}\" \"{2}\" --ssl-reqd --ftp-ssl --insecure -m 300 -s", localFile, userPwd, ftpUrl);
+                string escLocal = localFile.Replace("\"", "\\\"");
+                string escPwd = userPwd.Replace("\"", "\\\"");
+                string escUrl = ftpUrl.Replace("\"", "\\\"");
+                
+                string cmd = string.Format("-T \"{0}\" --ftp-create-dirs -u \"{1}\" \"{2}\" --ssl-reqd --ftp-ssl --insecure --disable-epsv -m 300 -s", escLocal, escPwd, escUrl);
                 var psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
@@ -12322,7 +12326,7 @@ $cfg['SendErrorReports']              = 'never';
                 proc.WaitForExit();
                 if (proc.ExitCode == 0) return true;
                 
-                cmd = string.Format("-T \"{0}\" --ftp-create-dirs -u \"{1}\" \"{2}\" -m 300 -s", localFile, userPwd, ftpUrl);
+                cmd = string.Format("-T \"{0}\" --ftp-create-dirs -u \"{1}\" \"{2}\" --disable-epsv -m 300 -s", escLocal, escPwd, escUrl);
                 psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
@@ -12342,7 +12346,11 @@ $cfg['SendErrorReports']              = 'never';
             error = "";
             try {
                 string curlPath = "curl";
-                string cmd = string.Format("-o \"{0}\" -u \"{1}\" \"{2}\" --ssl-reqd --ftp-ssl --insecure -m 30 -s", localFile, userPwd, ftpUrl);
+                string escLocal = localFile.Replace("\"", "\\\"");
+                string escPwd = userPwd.Replace("\"", "\\\"");
+                string escUrl = ftpUrl.Replace("\"", "\\\"");
+                
+                string cmd = string.Format("-o \"{0}\" -u \"{1}\" \"{2}\" --ssl-reqd --ftp-ssl --insecure --disable-epsv -m 30 -s", escLocal, escPwd, escUrl);
                 var psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
@@ -12353,7 +12361,7 @@ $cfg['SendErrorReports']              = 'never';
                 proc.WaitForExit();
                 if (proc.ExitCode == 0) return true;
                 
-                cmd = string.Format("-o \"{0}\" -u \"{1}\" \"{2}\" -m 30 -s", localFile, userPwd, ftpUrl);
+                cmd = string.Format("-o \"{0}\" -u \"{1}\" \"{2}\" --disable-epsv -m 30 -s", escLocal, escPwd, escUrl);
                 psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
@@ -12373,7 +12381,10 @@ $cfg['SendErrorReports']              = 'never';
             error = "";
             try {
                 string curlPath = "curl";
-                string cmd = string.Format("-u \"{0}\" \"{1}\" -X \"DELE\" --ssl-reqd --ftp-ssl --insecure -s", userPwd, ftpUrl);
+                string escPwd = userPwd.Replace("\"", "\\\"");
+                string escUrl = ftpUrl.Replace("\"", "\\\"");
+                
+                string cmd = string.Format("-u \"{0}\" \"{1}\" -X \"DELE\" --ssl-reqd --ftp-ssl --insecure --disable-epsv -s", escPwd, escUrl);
                 var psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
@@ -12383,7 +12394,7 @@ $cfg['SendErrorReports']              = 'never';
                 proc.WaitForExit();
                 if (proc.ExitCode == 0) return true;
                 
-                cmd = string.Format("-u \"{0}\" \"{1}\" -X \"DELE\" -s", userPwd, ftpUrl);
+                cmd = string.Format("-u \"{0}\" \"{1}\" -X \"DELE\" --disable-epsv -s", escPwd, escUrl);
                 psi = new ProcessStartInfo(curlPath, cmd);
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
