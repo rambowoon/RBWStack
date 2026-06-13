@@ -13105,16 +13105,86 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
             {
                 foreach (var fName in installed)
                 {
+                    FlowLayoutPanel pnlBadge = new FlowLayoutPanel();
+                    pnlBadge.FlowDirection = FlowDirection.LeftToRight;
+                    pnlBadge.BackColor = Color.FromArgb(241, 245, 249);
+                    pnlBadge.AutoSize = true;
+                    pnlBadge.AutoSizeMode = AutoSizeMode.GrowAndShrink;
+                    pnlBadge.Margin = new Padding(3);
+                    pnlBadge.Padding = new Padding(4, 2, 4, 2);
+                    pnlBadge.WrapContents = false;
+
                     Label lblF = new Label();
                     lblF.Text = fName;
                     lblF.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
                     lblF.ForeColor = Color.FromArgb(15, 23, 42);
-                    lblF.BackColor = Color.FromArgb(241, 245, 249);
-                    lblF.Padding = new Padding(6, 4, 6, 4);
-                    lblF.Margin = new Padding(3);
                     lblF.AutoSize = true;
-                    flpInstalled.Controls.Add(lblF);
+                    lblF.Margin = new Padding(0, 3, 2, 0);
+                    pnlBadge.Controls.Add(lblF);
+
+                    Label btnDel = new Label();
+                    btnDel.Text = "❌";
+                    btnDel.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
+                    btnDel.ForeColor = Color.FromArgb(239, 68, 68);
+                    btnDel.Cursor = Cursors.Hand;
+                    btnDel.AutoSize = true;
+                    btnDel.Margin = new Padding(2, 4, 0, 0);
+                    string targetFontName = fName;
+                    btnDel.Click += (s, e) => {
+                        UninstallFont(targetFontName);
+                    };
+                    pnlBadge.Controls.Add(btnDel);
+
+                    flpInstalled.Controls.Add(pnlBadge);
                 }
+            }
+        }
+
+        private void UninstallFont(string fontName)
+        {
+            var dr = MessageBox.Show(string.Format("Bạn có chắc chắn muốn gỡ bỏ font '{0}' ra khỏi dự án không?", fontName),
+                "Xác nhận gỡ bỏ", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (dr == DialogResult.No) return;
+
+            try
+            {
+                string fontsCssPath = Path.Combine(_projectDir, "assets", "css", "fonts.css");
+                if (File.Exists(fontsCssPath))
+                {
+                    string cssContent = File.ReadAllText(fontsCssPath);
+                    
+                    // 1. Remove @font-face blocks matching font-family
+                    string fontFacePattern = @"@font-face\s*\{[^}]*font-family:\s*['""]" + Regex.Escape(fontName) + @"['""][^}]*\}";
+                    cssContent = Regex.Replace(cssContent, fontFacePattern, "", RegexOptions.IgnoreCase);
+
+                    // 2. Remove @import Google Fonts
+                    string cleanFamily = fontName.Replace(" ", "+");
+                    var lines = new List<string>(cssContent.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None));
+                    lines.RemoveAll(l => l.IndexOf("family=" + cleanFamily, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                         l.IndexOf("family=" + Uri.EscapeDataString(fontName), StringComparison.OrdinalIgnoreCase) >= 0);
+                    cssContent = string.Join("\n", lines);
+                    
+                    // Clean up empty lines
+                    cssContent = Regex.Replace(cssContent, @"^\s*$\n", "", RegexOptions.Multiline);
+                    
+                    File.WriteAllText(fontsCssPath, cssContent.Trim() + "\n");
+                }
+
+                // 3. Delete font directory
+                string cleanFolderName = RemoveVietnameseDiacritics(fontName);
+                string fontDir = Path.Combine(_projectDir, "assets", "fonts", cleanFolderName);
+                if (Directory.Exists(fontDir))
+                {
+                    Directory.Delete(fontDir, true);
+                }
+
+                MessageBox.Show(string.Format("Đã gỡ bỏ font '{0}' thành công!", fontName), "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                
+                LoadInstalledFontsAndCss();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi gỡ bỏ font: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
