@@ -2802,6 +2802,7 @@ $cfg['SendErrorReports']              = 'never';
         private Panel pnlTabAbout;
         private Panel pnlTabPlaceholder;
         private Panel pnlTabSites;
+        private Panel pnlTabPro;
 
         private Label lblPlaceholderTitle;
         private Label lblPlaceholderDesc;
@@ -3296,7 +3297,7 @@ $cfg['SendErrorReports']              = 'never';
             btnTabDownload.PressedColor = Color.FromArgb(229, 231, 235);
             btnTabDownload.BorderColor = Color.Transparent;
             btnTabDownload.CornerRadius = 0;
-            btnTabDownload.Click += (s, e) => SwitchToTab("download");
+            btnTabDownload.Click += (s, e) => SwitchToTab("pro");
             pnlSidebar.Controls.Add(btnTabDownload);
 
             btnTabAbout = new ModernButton();
@@ -4151,6 +4152,16 @@ $cfg['SendErrorReports']              = 'never';
             pnlTabAbout.Visible = false;
             this.Controls.Add(pnlTabAbout);
 
+            // TAB 4.1: PRO PANEL
+            pnlTabPro = new Panel();
+            pnlTabPro.Size = new Size(tabW, tabH);
+            pnlTabPro.Location = tabLoc;
+            pnlTabPro.BackColor = colorBg;
+            pnlTabPro.Padding = new Padding(0, 0, 1, 1);
+            pnlTabPro.Paint += DrawTabPanelBorder;
+            pnlTabPro.Visible = false;
+            this.Controls.Add(pnlTabPro);
+
             // TAB 4.5: MAIL SANDBOX PANEL
             pnlTabMail = new Panel();
             pnlTabMail.Size = new Size(tabW, tabH);
@@ -4308,8 +4319,9 @@ $cfg['SendErrorReports']              = 'never';
             lblMailEmpty.Location = new Point(260, 0);
             pnlMailBox.Controls.Add(lblMailEmpty);
 
+            // ── TAB 4: ABOUT BOX (RELEASE NOTES AND CHECK UPDATE) ──
             Panel pnlAboutBox = new Panel();
-            pnlAboutBox.Size = new Size(720, 420);
+            pnlAboutBox.Size = new Size(720, 510);
             pnlAboutBox.Location = new Point(20, 20);
             pnlAboutBox.BackColor = Color.Transparent;
             pnlAboutBox.Paint += DrawCardBorder;
@@ -4317,31 +4329,55 @@ $cfg['SendErrorReports']              = 'never';
             ApplyRoundedRegion(pnlAboutBox, 12);
 
             Label lblAboutTitle = new Label();
-            lblAboutTitle.Text = "ABOUT RBWSTACK MANAGER";
+            lblAboutTitle.Text = "THÔNG TIN CẬP NHẬT (RELEASE NOTES)";
             lblAboutTitle.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
             lblAboutTitle.ForeColor = colorText;
-            lblAboutTitle.Location = new Point(30, 30);
-            lblAboutTitle.Size = new Size(400, 30);
+            lblAboutTitle.Location = new Point(30, 20);
+            lblAboutTitle.Size = new Size(600, 30);
             pnlAboutBox.Controls.Add(lblAboutTitle);
 
-            Label lblAboutDesc = new Label();
-            lblAboutDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
-                               "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.2.0 (RBW Pro Edition)\r\n" +
-                               "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
-                               "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
-                               "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
-                               "Cảm ơn bạn đã lựa chọn RBWStack để đồng hành cùng các dự án Web của mình!";
-            lblAboutDesc.Font = new Font("Segoe UI", 10f);
-            lblAboutDesc.ForeColor = colorTextDim;
-            lblAboutDesc.Location = new Point(30, 80);
-            lblAboutDesc.Size = new Size(660, 220);
-            pnlAboutBox.Controls.Add(lblAboutDesc);
+            TextBox txtReleaseNotes = new TextBox();
+            txtReleaseNotes.Name = "txtReleaseNotes";
+            txtReleaseNotes.Multiline = true;
+            txtReleaseNotes.ReadOnly = true;
+            txtReleaseNotes.ScrollBars = ScrollBars.Vertical;
+            txtReleaseNotes.Font = new Font("Segoe UI", 9.5f);
+            txtReleaseNotes.Location = new Point(30, 110);
+            txtReleaseNotes.Size = new Size(660, 370);
+            txtReleaseNotes.BorderStyle = BorderStyle.None;
+            txtReleaseNotes.BackColor = Color.White;
+            txtReleaseNotes.ForeColor = colorText;
+            pnlAboutBox.Controls.Add(txtReleaseNotes);
+
+            // Load update notes from cache initially
+            try
+            {
+                DateTime lastCheck;
+                string cacheTagName, cacheDownloadUrl, cacheBridgeDownloadUrl, cacheBody;
+                LoadUpdateCache(out lastCheck, out cacheTagName, out cacheDownloadUrl, out cacheBridgeDownloadUrl, out cacheBody);
+                if (!string.IsNullOrEmpty(cacheTagName))
+                {
+                    txtReleaseNotes.Text = string.Format(
+                        "Phiên bản trên máy chủ: {0} (Đã kiểm tra lúc: {1})\r\n\r\nNội dung cập nhật:\r\n{2}",
+                        cacheTagName,
+                        lastCheck.ToString("dd/MM/yyyy HH:mm:ss"),
+                        string.IsNullOrEmpty(cacheBody) ? "(Không có mô tả chi tiết)" : cacheBody.Replace("\n", "\r\n")
+                    );
+                }
+                else
+                {
+                    txtReleaseNotes.Text = "Chưa có dữ liệu kiểm tra cập nhật. Hãy nhấn nút 'Kiểm tra cập nhật' ở trên để quét.";
+                }
+            }
+            catch
+            {
+                txtReleaseNotes.Text = "Chưa có dữ liệu kiểm tra cập nhật. Hãy nhấn nút 'Kiểm tra cập nhật' ở trên để quét.";
+            }
 
             ModernButton btnCheckUpdate = new ModernButton();
             btnCheckUpdate.Text = "Kiểm tra cập nhật 🔄";
             btnCheckUpdate.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-            btnCheckUpdate.Location = new Point(30, 310);
+            btnCheckUpdate.Location = new Point(30, 60);
             btnCheckUpdate.Size = new Size(180, 35);
             btnCheckUpdate.NormalColor = Color.White;
             btnCheckUpdate.HoverColor = Color.FromArgb(243, 244, 246);
@@ -4362,6 +4398,12 @@ $cfg['SendErrorReports']              = 'never';
                             
                             if (release != null)
                             {
+                                txtReleaseNotes.Text = string.Format(
+                                    "Phiên bản mới nhất: {0}\r\n\r\nNội dung cập nhật:\r\n{1}",
+                                    release.TagName,
+                                    string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
+                                );
+
                                 if (!release.TagName.Equals("v2.2.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
@@ -4373,6 +4415,7 @@ $cfg['SendErrorReports']              = 'never';
                             }
                             else
                             {
+                                txtReleaseNotes.Text = "Không thể kết nối tới máy chủ cập nhật.";
                                 MessageBox.Show("Không thể kiểm tra cập nhật vào lúc này. Vui lòng kiểm tra lại kết nối mạng!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                             }
                         });
@@ -4381,6 +4424,38 @@ $cfg['SendErrorReports']              = 'never';
                 });
             };
             pnlAboutBox.Controls.Add(btnCheckUpdate);
+
+
+            // ── TAB 4.1: RBW PRO PAGE ──
+            Panel pnlProBox = new Panel();
+            pnlProBox.Size = new Size(720, 420);
+            pnlProBox.Location = new Point(20, 20);
+            pnlProBox.BackColor = Color.Transparent;
+            pnlProBox.Paint += DrawCardBorder;
+            pnlTabPro.Controls.Add(pnlProBox);
+            ApplyRoundedRegion(pnlProBox, 12);
+
+            Label lblProTitle = new Label();
+            lblProTitle.Text = "ABOUT RBWSTACK PRO EDITION";
+            lblProTitle.Font = new Font("Segoe UI", 14f, FontStyle.Bold);
+            lblProTitle.ForeColor = colorText;
+            lblProTitle.Location = new Point(30, 30);
+            lblProTitle.Size = new Size(400, 30);
+            pnlProBox.Controls.Add(lblProTitle);
+
+            Label lblProDesc = new Label();
+            lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
+                               "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
+                               "• Phiên bản: v2.2.0 (RBW Pro Edition)\r\n" +
+                               "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
+                               "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
+                               "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
+                               "Cảm ơn bạn đã lựa chọn RBWStack để đồng hành cùng các dự án Web của mình!";
+            lblProDesc.Font = new Font("Segoe UI", 10f);
+            lblProDesc.ForeColor = colorTextDim;
+            lblProDesc.Location = new Point(30, 80);
+            lblProDesc.Size = new Size(660, 220);
+            pnlProBox.Controls.Add(lblProDesc);
 
 
             // TAB 5: PLACEHOLDER PANEL
@@ -4434,9 +4509,10 @@ $cfg['SendErrorReports']              = 'never';
             pnlTabPlaceholder.Visible = (tabName == "placeholder");
             pnlTabSites.Visible = (tabName == "sites");
             if (pnlTabMail != null) pnlTabMail.Visible = (tabName == "mail");
+            if (pnlTabPro != null) pnlTabPro.Visible = (tabName == "pro");
 
             btnTabDashboard.IsSelected = (tabName == "dashboard");
-            btnTabDownload.IsSelected = (tabName == "download");
+            btnTabDownload.IsSelected = (tabName == "download" || tabName == "pro");
             btnTabSettings.IsSelected = (tabName == "settings");
             btnTabAbout.IsSelected = (tabName == "about");
 
@@ -4497,6 +4573,7 @@ $cfg['SendErrorReports']              = 'never';
             pnlTabPlaceholder.Visible = false;
             if (pnlTabSites != null) pnlTabSites.Visible = false;
             if (pnlTabMail != null) pnlTabMail.Visible = false;
+            if (pnlTabPro != null) pnlTabPro.Visible = false;
 
             // Update selections
             btnTabDashboard.IsSelected = false;
