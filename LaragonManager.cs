@@ -11352,6 +11352,31 @@ $cfg['SendErrorReports']              = 'never';
             return new FileStream(handle, FileAccess.Read);
         }
 
+        private static string GetRelativePath(string rootDir, string fullPath)
+        {
+            string root = rootDir;
+            if (root.StartsWith(@"\\?\"))
+            {
+                root = root.Substring(4);
+            }
+            string file = fullPath;
+            if (file.StartsWith(@"\\?\"))
+            {
+                file = file.Substring(4);
+            }
+
+            root = Path.GetFullPath(root).Replace('\\', '/').TrimEnd('/');
+            file = Path.GetFullPath(file).Replace('\\', '/');
+
+            if (file.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            {
+                string rel = file.Substring(root.Length).TrimStart('/');
+                return rel;
+            }
+
+            return Path.GetFileName(file);
+        }
+
         private static void SafeCreateZipFromDirectory(string sourceDir, string zipPath, System.IO.Compression.CompressionLevel level, Action<long, long, int, int> progressCallback = null)
         {
             if (File.Exists(zipPath)) File.Delete(zipPath);
@@ -11370,17 +11395,6 @@ $cfg['SendErrorReports']              = 'never';
             using (var zipStream = new FileStream(zipPath, FileMode.Create))
             using (var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create))
             {
-                string absSourceDir = Path.GetFullPath(sourceDir);
-                if (!absSourceDir.StartsWith(@"\\?\"))
-                {
-                    absSourceDir = @"\\?\" + absSourceDir;
-                }
-                int stripLength = absSourceDir.Length;
-                if (!absSourceDir.EndsWith(Path.DirectorySeparatorChar.ToString()))
-                {
-                    stripLength++;
-                }
-
                 long processedBytes = 0;
                 int processedFiles = 0;
                 DateTime lastLogTime = DateTime.MinValue;
@@ -11388,8 +11402,9 @@ $cfg['SendErrorReports']              = 'never';
                 foreach (var fileInfo in files)
                 {
                     string file = fileInfo.FullPath;
-                    string relativePath = file.Substring(stripLength);
-                    string entryName = relativePath.Replace('\\', '/');
+                    string entryName = GetRelativePath(sourceDir, file);
+                    if (string.IsNullOrEmpty(entryName))
+                        continue;
                     
                     var entry = archive.CreateEntry(entryName, level);
                     using (var entryStream = entry.Open())
@@ -11434,8 +11449,14 @@ $cfg['SendErrorReports']              = 'never';
 
                     if (!hasContents)
                     {
-                        string relativePath = dir.Substring(stripLength);
-                        string entryName = relativePath.Replace('\\', '/') + "/";
+                        string entryName = GetRelativePath(sourceDir, dir);
+                        if (string.IsNullOrEmpty(entryName))
+                            continue;
+                        
+                        entryName = entryName.Replace('\\', '/').TrimEnd('/') + "/";
+                        if (entryName == "/")
+                            continue;
+                        
                         archive.CreateEntry(entryName);
                     }
                 }
