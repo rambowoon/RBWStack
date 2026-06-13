@@ -3087,7 +3087,7 @@ $cfg['SendErrorReports']              = 'never';
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.Equals("v2.2.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -4404,7 +4404,7 @@ $cfg['SendErrorReports']              = 'never';
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.Equals("v2.2.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
@@ -8462,11 +8462,19 @@ $cfg['SendErrorReports']              = 'never';
                         
                         System.Text.StringBuilder sb = new System.Text.StringBuilder();
                         sb.AppendLine("@echo off");
-                        sb.AppendLine("timeout /t 1 /nobreak > nul");
+                        sb.AppendLine("set /a count=1");
+                        sb.AppendLine(":loop");
                         sb.AppendLine(string.Format("del /f /q \"{0}\"", currentExe));
+                        sb.AppendLine(string.Format("if exist \"{0}\" (", currentExe));
+                        sb.AppendLine("    if %count% geq 10 goto end");
+                        sb.AppendLine("    set /a count=%count%+1");
+                        sb.AppendLine("    timeout /t 1 /nobreak > nul");
+                        sb.AppendLine("    goto loop");
+                        sb.AppendLine(")");
                         sb.AppendLine(string.Format("copy /y \"{0}\" \"{1}\"", tempFile, currentExe));
                         sb.AppendLine(string.Format("del /f /q \"{0}\"", tempFile));
                         sb.AppendLine(string.Format("start \"\" \"{0}\"", currentExe));
+                        sb.AppendLine(":end");
                         sb.AppendLine("del /f /q \"%~f0\"");
                         
                         File.WriteAllText(batPath, sb.ToString());
