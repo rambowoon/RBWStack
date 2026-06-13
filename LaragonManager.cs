@@ -2890,6 +2890,9 @@ $cfg['SendErrorReports']              = 'never';
         [DllImport("user32.dll")]
         public static extern int SendMessage(IntPtr hWnd, int Msg, int wParam, int lParam);
 
+        [DllImport("user32.dll", EntryPoint = "SendMessage", CharSet = CharSet.Auto)]
+        private static extern int SendCueMessage(IntPtr hWnd, int msg, int wParam, string lParam);
+
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern uint RegisterWindowMessage(string lpString);
 
@@ -8797,8 +8800,19 @@ $cfg['SendErrorReports']              = 'never';
                 lblSitesDesc.Font = new Font("Segoe UI Italic", 8.5f);
                 lblSitesDesc.ForeColor = colorTextDim;
                 lblSitesDesc.Location = new Point(20, 40);
-                lblSitesDesc.Size = new Size(680, 20);
+                lblSitesDesc.Size = new Size(490, 20);
                 pnlTabSites.Controls.Add(lblSitesDesc);
+
+                TextBox txtSearchSites = new TextBox();
+                txtSearchSites.Name = "txtSearchSites";
+                txtSearchSites.Font = new Font("Segoe UI", 8.5f);
+                txtSearchSites.Location = new Point(520, 36);
+                txtSearchSites.Size = new Size(160, 23);
+                txtSearchSites.TextChanged += (s, e) => {
+                    RenderSitesList();
+                };
+                pnlTabSites.Controls.Add(txtSearchSites);
+                SendCueMessage(txtSearchSites.Handle, 0x1501, 0, "Tìm kiếm dự án...");
 
                 pnlSitesContainer = new Panel();
                 pnlSitesContainer.Name = "pnlSitesContainer";
@@ -8812,6 +8826,17 @@ $cfg['SendErrorReports']              = 'never';
             string wwwDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "www");
             string currentSitesDir = GetSitesParentDirectory();
             if (!Directory.Exists(currentSitesDir)) Directory.CreateDirectory(currentSitesDir);
+
+            // Get search query
+            string query = "";
+            foreach (Control c in pnlTabSites.Controls)
+            {
+                if (c.Name == "txtSearchSites")
+                {
+                    query = c.Text.Trim();
+                    break;
+                }
+            }
 
             // Update label path text
             foreach (Control c in pnlTabSites.Controls)
@@ -8833,6 +8858,20 @@ $cfg['SendErrorReports']              = 'never';
             pnlSitesContainer.Controls.Clear();
 
             string[] subDirs = Directory.GetDirectories(currentSitesDir);
+            if (!string.IsNullOrEmpty(query))
+            {
+                List<string> filtered = new List<string>();
+                foreach (string dir in subDirs)
+                {
+                    string folderName = Path.GetFileName(dir);
+                    if (folderName.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        filtered.Add(dir);
+                    }
+                }
+                subDirs = filtered.ToArray();
+            }
+
             Dictionary<string, string> sitesConfig = LoadSitesConfig();
             string activeRootProj = LoadRootProjectConfig();
 
@@ -8851,7 +8890,14 @@ $cfg['SendErrorReports']              = 'never';
             if (subDirs.Length == 0)
             {
                 Label lblEmpty = new Label();
-                lblEmpty.Text = "Chưa có dự án nào trong thư mục đang chọn.\r\nHãy tạo một thư mục con hoặc chọn thư mục khác!";
+                if (!string.IsNullOrEmpty(query))
+                {
+                    lblEmpty.Text = "Không tìm thấy dự án nào khớp với từ khóa '" + query + "'!";
+                }
+                else
+                {
+                    lblEmpty.Text = "Chưa có dự án nào trong thư mục đang chọn.\r\nHãy tạo một thư mục con hoặc chọn thư mục khác!";
+                }
                 lblEmpty.Font = new Font("Segoe UI", 9.5f, FontStyle.Regular);
                 lblEmpty.ForeColor = colorTextDim;
                 lblEmpty.Location = new Point(20, 40);
