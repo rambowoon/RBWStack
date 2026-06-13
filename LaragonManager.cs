@@ -5474,6 +5474,15 @@ $cfg['SendErrorReports']              = 'never';
                         content += "\r\nsession.gc_maxlifetime = 2592000\r\n";
                     }
 
+                    if (Regex.IsMatch(content, @"session\.cookie_lifetime\s*=", RegexOptions.IgnoreCase))
+                    {
+                        content = Regex.Replace(content, @"(?m)^;?\s*session\.cookie_lifetime\s*=.*$", "session.cookie_lifetime = 2592000", RegexOptions.IgnoreCase);
+                    }
+                    else
+                    {
+                        content += "\r\nsession.cookie_lifetime = 2592000\r\n";
+                    }
+
                     // Always overwrite/optimize in full mode
                     content = Regex.Replace(content, @"(?m)^;?\s*upload_tmp_dir\s*=.*$", "upload_tmp_dir = \"" + tempPathFwd + "\"", RegexOptions.IgnoreCase);
                     content = Regex.Replace(content, @"(?m)^;?\s*sys_temp_dir\s*=.*$", "sys_temp_dir = \"" + tempPathFwd + "\"", RegexOptions.IgnoreCase);
