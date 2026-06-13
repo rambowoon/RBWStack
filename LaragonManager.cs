@@ -13505,7 +13505,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     string style = vFiles[0].Style;
 
                     sb.AppendLine("@font-face {");
-                    sb.AppendLine(string.Format("  font-family: '{0}';", group.Family));
+                    sb.AppendLine(string.Format("  font-family: '{0}';", cleanFolderName));
                     sb.AppendLine(string.Format("  font-style: {0};", style));
                     sb.AppendLine(string.Format("  font-weight: {0};", weight));
                     sb.AppendLine("  font-display: swap;");
@@ -14125,7 +14125,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     // Trình duyệt hiện đại đọc WOFF2 theo Brotli — nên ta chỉ dùng WOFF + TTF
 
                     sb.AppendLine("@font-face {");
-                    sb.AppendLine(string.Format("  font-family: '{0}';", group.Family));
+                    sb.AppendLine(string.Format("  font-family: '{0}';", cleanFolderName));
                     sb.AppendLine(string.Format("  font-style: {0};", style));
                     sb.AppendLine(string.Format("  font-weight: {0};", weight));
                     sb.AppendLine("  font-display: swap;");
