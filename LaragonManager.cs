@@ -13490,6 +13490,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     var vFiles = group.Files.FindAll(f => f.VariantKey == v);
                     foreach (var vf in vFiles)
                     {
+                        if (vf.Extension != "woff" && vf.Extension != "woff2") continue;
                         string destPath = Path.Combine(destDir, vf.FileName);
                         File.Copy(vf.FilePath, destPath, true);
                         if (!copiedFiles.ContainsKey(v)) copiedFiles[v] = new List<LocalFontFile>();
@@ -14111,31 +14112,21 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     string baseName = Path.GetFileNameWithoutExtension(srcFile.FileName);
                     string woffName  = baseName + ".woff";
                     string woff2Name = baseName + ".woff2";
-                    string origName  = srcFile.FileName;
-
-                    // Copy file gốc TTF/OTF vào dự án
-                    File.Copy(srcFile.FilePath, Path.Combine(destDir, origName), true);
-
                     // Convert → WOFF
                     byte[] ttfBytes = File.ReadAllBytes(srcFile.FilePath);
                     byte[] woffBytes = ConvertToWoff(ttfBytes);
                     File.WriteAllBytes(Path.Combine(destDir, woffName), woffBytes);
 
-                    // WOFF2: thử dùng file TTF wrap đơn giản (báo rõ chỉ là WOFF fallback)
-                    // Nếu muốn WOFF2 thực sự cần Brotli (không có trong .NET 4.x);
-                    // ta copy WOFF làm WOFF2 placeholder — trình duyệt sẽ fallback xuống WOFF
-                    // Lưu ý: file .woff2 thực ra là WOFF nhưng khai báo rõ trong src
-                    // Trình duyệt hiện đại đọc WOFF2 theo Brotli — nên ta chỉ dùng WOFF + TTF
+                    // WOFF2: copy WOFF làm WOFF2 placeholder (trình duyệt sẽ fallback xuống WOFF)
+                    File.WriteAllBytes(Path.Combine(destDir, woff2Name), woffBytes);
 
                     sb.AppendLine("@font-face {");
                     sb.AppendLine(string.Format("  font-family: '{0}';", cleanFolderName));
                     sb.AppendLine(string.Format("  font-style: {0};", style));
                     sb.AppendLine(string.Format("  font-weight: {0};", weight));
                     sb.AppendLine("  font-display: swap;");
-                    sb.AppendLine(string.Format("  src: url('../fonts/{0}/{1}') format('woff'),", cleanFolderName, woffName));
-                    sb.AppendLine(string.Format("       url('../fonts/{0}/{1}') format('{2}');",
-                        cleanFolderName, origName,
-                        srcFile.Extension == "ttf" ? "truetype" : "opentype"));
+                    sb.AppendLine(string.Format("  src: url('../fonts/{0}/{1}') format('woff2'),", cleanFolderName, woff2Name));
+                    sb.AppendLine(string.Format("       url('../fonts/{0}/{1}') format('woff');", cleanFolderName, woffName));
                     sb.AppendLine("}");
                 }
 
