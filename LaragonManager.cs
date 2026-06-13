@@ -8805,8 +8805,8 @@ $cfg['SendErrorReports']              = 'never';
 
                 Panel pnlSearchSites = new Panel();
                 pnlSearchSites.Name = "pnlSearchSites";
-                pnlSearchSites.Location = new Point(20, 65);
-                pnlSearchSites.Size = new Size(680, 40);
+                pnlSearchSites.Location = new Point(30, 65);
+                pnlSearchSites.Size = new Size(700, 40);
                 pnlSearchSites.BackColor = Color.White;
                 pnlSearchSites.Paint += (s, pe) => {
                     using (Pen pen = new Pen(colorBorder, 1.5f))
@@ -8819,7 +8819,7 @@ $cfg['SendErrorReports']              = 'never';
                 txtSearchSites.Name = "txtSearchSites";
                 txtSearchSites.Font = new Font("Segoe UI", 10f);
                 txtSearchSites.Location = new Point(10, 11);
-                txtSearchSites.Size = new Size(580, 20);
+                txtSearchSites.Size = new Size(600, 20);
                 txtSearchSites.BorderStyle = BorderStyle.None;
                 txtSearchSites.TextChanged += (s, e) => {
                     RenderSitesList();
@@ -8830,7 +8830,7 @@ $cfg['SendErrorReports']              = 'never';
                 ModernButton btnSearchSites = new ModernButton();
                 btnSearchSites.Text = "Tìm";
                 btnSearchSites.Size = new Size(70, 26);
-                btnSearchSites.Location = new Point(600, 7);
+                btnSearchSites.Location = new Point(620, 7);
                 btnSearchSites.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
                 btnSearchSites.NormalColor = Color.FromArgb(139, 92, 246);
                 btnSearchSites.HoverColor = Color.FromArgb(124, 58, 237);
