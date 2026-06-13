@@ -13470,7 +13470,10 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 if (File.Exists(fontsCssPath))
                 {
                     string currentCss = File.ReadAllText(fontsCssPath);
-                    if (currentCss.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    // Kiểm tra theo cả Family name (có dấu cách) và cleanFolder
+                    if (currentCss.IndexOf("font-family: '" + group.Family + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        currentCss.IndexOf("font-family: \"" + group.Family + "\"", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        currentCss.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         currentCss.IndexOf("font-family: \"" + cleanFolderName + "\"", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         var dr = MessageBox.Show(string.Format("Font '{0}' đã tồn tại trong file fonts.css. Bạn có muốn tiếp tục cài đặt không?", group.Family), "Trùng font", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
@@ -14063,7 +14066,10 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 if (File.Exists(fontsCssPath))
                 {
                     string cur = File.ReadAllText(fontsCssPath);
-                    if (cur.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                    // Kiểm tra theo cả Family name (có dấu cách) và cleanFolder (không dấu cách)
+                    if (cur.IndexOf("font-family: '" + group.Family + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        cur.IndexOf("font-family: \"" + group.Family + "\"", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        cur.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         cur.IndexOf("font-family: \"" + cleanFolderName + "\"", StringComparison.OrdinalIgnoreCase) >= 0)
                     {
                         var dr = MessageBox.Show(string.Format("Font '{0}' đã tồn tại trong fonts.css. Tiếp tục?", group.Family),
