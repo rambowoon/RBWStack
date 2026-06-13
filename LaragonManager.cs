@@ -13352,13 +13352,18 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
             {
                 var localGrp = (LocalFontGroup)r;
 
+                // Kiểm tra xem group có chỉ toàn TTF/OTF mà không có WOFF/WOFF2 không
+                bool hasTtfOtfOnly = localGrp.Files.Count > 0
+                    && !localGrp.Files.Exists(f => f.Extension == "woff" || f.Extension == "woff2")
+                    && localGrp.Files.Exists(f => f.Extension == "ttf" || f.Extension == "otf");
+
                 ModernButton btnInstall = new ModernButton();
-                btnInstall.Text = "Cài đặt Font Local";
+                btnInstall.Text = hasTtfOtfOnly ? "🔄 Convert & Install" : "Cài đặt Font Local";
                 btnInstall.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
-                btnInstall.NormalColor = Color.FromArgb(59, 130, 246);
-                btnInstall.HoverColor = Color.FromArgb(37, 99, 235);
+                btnInstall.NormalColor = hasTtfOtfOnly ? Color.FromArgb(245, 158, 11) : Color.FromArgb(59, 130, 246);
+                btnInstall.HoverColor = hasTtfOtfOnly ? Color.FromArgb(217, 119, 6) : Color.FromArgb(37, 99, 235);
                 btnInstall.ForeColor = Color.White;
-                btnInstall.Size = new Size(160, 28);
+                btnInstall.Size = new Size(hasTtfOtfOnly ? 170 : 160, 28);
                 btnInstall.Location = new Point(12, Y_button);
                 btnInstall.Click += (s, e) => {
                     var selected = new List<string>();
@@ -13371,7 +13376,10 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                         MessageBox.Show("Vui lòng chọn ít nhất một biến thể font!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         return;
                     }
-                    InstallLocalFont(localGrp, selected);
+                    if (hasTtfOtfOnly)
+                        ConvertAndInstallFont(localGrp, selected);
+                    else
+                        InstallLocalFont(localGrp, selected);
                 };
                 pnlCard.Controls.Add(btnInstall);
 
@@ -13383,7 +13391,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnToggle.BorderColor = Color.FromArgb(209, 213, 219);
                 btnToggle.ForeColor = Color.FromArgb(55, 65, 81);
                 btnToggle.Size = new Size(80, 28);
-                btnToggle.Location = new Point(180, Y_button);
+                btnToggle.Location = new Point(hasTtfOtfOnly ? 190 : 180, Y_button);
                 btnToggle.Click += (s, e) => {
                     bool allChecked = true;
                     foreach (var chk in checkboxes) { if (!chk.Checked) allChecked = false; }
@@ -14034,6 +14042,232 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 cp.ClassStyle |= 0x20000;
                 return cp;
             }
+        }
+
+        // ============================================================
+        // TTF/OTF → WOFF Converter (pure C# / .NET 4.x)
+        // ============================================================
+
+        private void ConvertAndInstallFont(LocalFontGroup group, List<string> selectedVariants)
+        {
+            try
+            {
+                string cleanFolderName = RemoveVietnameseDiacritics(group.Family);
+                string destDir = Path.Combine(_projectDir, "assets", "fonts", cleanFolderName);
+                if (!Directory.Exists(destDir)) Directory.CreateDirectory(destDir);
+
+                string fontsCssPath = Path.Combine(_projectDir, "assets", "css", "fonts.css");
+                string fontsCssDir = Path.GetDirectoryName(fontsCssPath);
+                if (!Directory.Exists(fontsCssDir)) Directory.CreateDirectory(fontsCssDir);
+
+                if (File.Exists(fontsCssPath))
+                {
+                    string cur = File.ReadAllText(fontsCssPath);
+                    if (cur.IndexOf("font-family: '" + cleanFolderName + "'", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        cur.IndexOf("font-family: \"" + cleanFolderName + "\"", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        var dr = MessageBox.Show(string.Format("Font '{0}' đã tồn tại trong fonts.css. Tiếp tục?", group.Family),
+                            "Trùng font", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                        if (dr == DialogResult.No) return;
+                    }
+                }
+
+                // Nhóm file theo variant
+                var copiedFiles = new Dictionary<string, List<LocalFontFile>>();
+                foreach (var v in selectedVariants)
+                {
+                    var vFiles = group.Files.FindAll(f => f.VariantKey == v);
+                    foreach (var vf in vFiles)
+                    {
+                        if (!copiedFiles.ContainsKey(v)) copiedFiles[v] = new List<LocalFontFile>();
+                        copiedFiles[v].Add(vf);
+                    }
+                }
+
+                var sb = new StringBuilder();
+
+                foreach (var kv in copiedFiles)
+                {
+                    var vFiles = kv.Value;
+                    if (vFiles.Count == 0) continue;
+
+                    string weight = vFiles[0].Weight;
+                    string style  = vFiles[0].Style;
+
+                    // Lấy file TTF hoặc OTF đầu tiên trong variant
+                    LocalFontFile srcFile = vFiles.Find(f => f.Extension == "ttf");
+                    if (srcFile == null) srcFile = vFiles.Find(f => f.Extension == "otf");
+                    if (srcFile == null) continue;
+
+                    string baseName = Path.GetFileNameWithoutExtension(srcFile.FileName);
+                    string woffName  = baseName + ".woff";
+                    string woff2Name = baseName + ".woff2";
+                    string origName  = srcFile.FileName;
+
+                    // Copy file gốc TTF/OTF vào dự án
+                    File.Copy(srcFile.FilePath, Path.Combine(destDir, origName), true);
+
+                    // Convert → WOFF
+                    byte[] ttfBytes = File.ReadAllBytes(srcFile.FilePath);
+                    byte[] woffBytes = ConvertToWoff(ttfBytes);
+                    File.WriteAllBytes(Path.Combine(destDir, woffName), woffBytes);
+
+                    // WOFF2: thử dùng file TTF wrap đơn giản (báo rõ chỉ là WOFF fallback)
+                    // Nếu muốn WOFF2 thực sự cần Brotli (không có trong .NET 4.x);
+                    // ta copy WOFF làm WOFF2 placeholder — trình duyệt sẽ fallback xuống WOFF
+                    // Lưu ý: file .woff2 thực ra là WOFF nhưng khai báo rõ trong src
+                    // Trình duyệt hiện đại đọc WOFF2 theo Brotli — nên ta chỉ dùng WOFF + TTF
+
+                    sb.AppendLine("@font-face {");
+                    sb.AppendLine(string.Format("  font-family: '{0}';", group.Family));
+                    sb.AppendLine(string.Format("  font-style: {0};", style));
+                    sb.AppendLine(string.Format("  font-weight: {0};", weight));
+                    sb.AppendLine("  font-display: swap;");
+                    sb.AppendLine(string.Format("  src: url('../fonts/{0}/{1}') format('woff'),", cleanFolderName, woffName));
+                    sb.AppendLine(string.Format("       url('../fonts/{0}/{1}') format('{2}');",
+                        cleanFolderName, origName,
+                        srcFile.Extension == "ttf" ? "truetype" : "opentype"));
+                    sb.AppendLine("}");
+                }
+
+                string existing = File.Exists(fontsCssPath) ? File.ReadAllText(fontsCssPath) : "";
+                string prefix = (string.IsNullOrEmpty(existing) || existing.EndsWith("\n")) ? "" : "\n";
+                File.AppendAllText(fontsCssPath, prefix + sb.ToString());
+
+                MessageBox.Show(
+                    string.Format("Đã convert và cài đặt font '{0}' thành công!\n(TTF/OTF → WOFF + giữ nguyên file gốc làm fallback)", group.Family),
+                    "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+                LoadInstalledFontsAndCss();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Lỗi convert font: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        /// <summary>Convert TTF/OTF bytes sang định dạng WOFF (W3C spec) thuần C#</summary>
+        private static byte[] ConvertToWoff(byte[] sfntData)
+        {
+            // --- đọc sfnt header ---
+            uint flavor    = RdU32(sfntData, 0);
+            int numTables  = RdU16(sfntData, 4);
+
+            // --- đọc table records ---
+            var tables = new List<WoffTable>();
+            for (int i = 0; i < numTables; i++)
+            {
+                int off = 12 + i * 16;
+                tables.Add(new WoffTable {
+                    Tag      = RdU32(sfntData, off),
+                    CheckSum = RdU32(sfntData, off + 4),
+                    Offset   = (int)RdU32(sfntData, off + 8),
+                    Length   = (int)RdU32(sfntData, off + 12)
+                });
+            }
+
+            // --- nén từng table bằng zlib (DeflateStream + zlib header/checksum) ---
+            var compressed = new byte[numTables][];
+            for (int i = 0; i < numTables; i++)
+            {
+                byte[] raw = new byte[tables[i].Length];
+                Array.Copy(sfntData, tables[i].Offset, raw, 0, raw.Length);
+                byte[] zlibData = ZlibDeflate(raw);
+                compressed[i] = (zlibData.Length < raw.Length) ? zlibData : raw;
+            }
+
+            // --- tính offset từng table (align 4 bytes) ---
+            int woffHeaderSz  = 44;
+            int woffTableDirSz = numTables * 20;
+            int dataStart     = woffHeaderSz + woffTableDirSz;
+            var tableOffsets  = new int[numTables];
+            int cursor        = dataStart;
+            for (int i = 0; i < numTables; i++)
+            {
+                tableOffsets[i] = cursor;
+                cursor += compressed[i].Length;
+                if (cursor % 4 != 0) cursor += 4 - (cursor % 4);
+            }
+            int totalWoffSize = cursor;
+
+            // --- tính totalSfntSize ---
+            uint totalSfntSize = (uint)(12 + numTables * 16);
+            foreach (var t in tables)
+            {
+                int pad = t.Length;
+                if (pad % 4 != 0) pad += 4 - (pad % 4);
+                totalSfntSize += (uint)pad;
+            }
+
+            var woff = new byte[totalWoffSize];
+            int p = 0;
+
+            // --- WOFF Header (44 bytes) ---
+            WrU32(woff, p, 0x774F4646); p += 4; // 'wOFF'
+            WrU32(woff, p, flavor);     p += 4;
+            WrU32(woff, p, (uint)totalWoffSize); p += 4;
+            WrU16(woff, p, (ushort)numTables);   p += 2;
+            WrU16(woff, p, 0); p += 2;           // reserved
+            WrU32(woff, p, totalSfntSize); p += 4;
+            WrU16(woff, p, 1); p += 2;           // majorVersion
+            WrU16(woff, p, 0); p += 2;           // minorVersion
+            WrU32(woff, p, 0); p += 4;           // metaOffset
+            WrU32(woff, p, 0); p += 4;           // metaLength
+            WrU32(woff, p, 0); p += 4;           // metaOrigLength
+            WrU32(woff, p, 0); p += 4;           // privOffset
+            WrU32(woff, p, 0); p += 4;           // privLength
+
+            // --- Table Directory ---
+            for (int i = 0; i < numTables; i++)
+            {
+                WrU32(woff, p, tables[i].Tag);                       p += 4;
+                WrU32(woff, p, (uint)tableOffsets[i]);               p += 4;
+                WrU32(woff, p, (uint)compressed[i].Length);          p += 4;
+                WrU32(woff, p, (uint)tables[i].Length);              p += 4;
+                WrU32(woff, p, tables[i].CheckSum);                  p += 4;
+            }
+
+            // --- Table Data ---
+            for (int i = 0; i < numTables; i++)
+                Array.Copy(compressed[i], 0, woff, tableOffsets[i], compressed[i].Length);
+
+            return woff;
+        }
+
+        private static byte[] ZlibDeflate(byte[] data)
+        {
+            using (var ms = new MemoryStream())
+            {
+                ms.WriteByte(0x78); ms.WriteByte(0x9C); // zlib header (default compression)
+                using (var ds = new DeflateStream(ms, CompressionMode.Compress, true))
+                    ds.Write(data, 0, data.Length);
+                // Adler-32 checksum (big-endian)
+                uint a = Adler32(data);
+                ms.WriteByte((byte)(a >> 24)); ms.WriteByte((byte)(a >> 16));
+                ms.WriteByte((byte)(a >>  8)); ms.WriteByte((byte)(a & 0xFF));
+                return ms.ToArray();
+            }
+        }
+
+        private static uint Adler32(byte[] data)
+        {
+            uint s1 = 1, s2 = 0;
+            foreach (byte b in data) { s1 = (s1 + b) % 65521; s2 = (s2 + s1) % 65521; }
+            return (s2 << 16) | s1;
+        }
+
+        private static uint RdU32(byte[] b, int o)
+        { return (uint)((b[o] << 24) | (b[o+1] << 16) | (b[o+2] << 8) | b[o+3]); }
+        private static int  RdU16(byte[] b, int o)
+        { return (b[o] << 8) | b[o+1]; }
+        private static void WrU32(byte[] b, int o, uint v)
+        { b[o]=(byte)(v>>24); b[o+1]=(byte)(v>>16); b[o+2]=(byte)(v>>8); b[o+3]=(byte)(v&0xFF); }
+        private static void WrU16(byte[] b, int o, ushort v)
+        { b[o]=(byte)(v>>8); b[o+1]=(byte)(v&0xFF); }
+
+        private class WoffTable
+        {
+            public uint Tag; public uint CheckSum; public int Offset; public int Length;
         }
     }
 
