@@ -13507,9 +13507,12 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                         return 0;
                     });
 
+                    // Deduplicate theo FileName để tránh trùng src
+                    var seenFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var srcs = new List<string>();
                     foreach (var vf in vFiles)
                     {
+                        if (!seenFileNames.Add(vf.FileName)) continue;
                         string format = vf.Extension == "ttf" ? "truetype" : (vf.Extension == "otf" ? "opentype" : vf.Extension);
                         srcs.Add(string.Format("url('../fonts/{0}/{1}') format('{2}')", cleanFolderName, vf.FileName, format));
                     }
