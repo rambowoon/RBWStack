@@ -8803,21 +8803,47 @@ $cfg['SendErrorReports']              = 'never';
                 lblSitesDesc.Size = new Size(680, 20);
                 pnlTabSites.Controls.Add(lblSitesDesc);
 
+                Panel pnlSearchSites = new Panel();
+                pnlSearchSites.Name = "pnlSearchSites";
+                pnlSearchSites.Location = new Point(20, 65);
+                pnlSearchSites.Size = new Size(680, 40);
+                pnlSearchSites.BackColor = Color.White;
+                pnlSearchSites.Paint += (s, pe) => {
+                    using (Pen pen = new Pen(colorBorder, 1.5f))
+                        pe.Graphics.DrawRectangle(pen, 0, 0, pnlSearchSites.Width - 1, pnlSearchSites.Height - 1);
+                };
+                pnlTabSites.Controls.Add(pnlSearchSites);
+                ApplyRoundedRegion(pnlSearchSites, 6);
+
                 TextBox txtSearchSites = new TextBox();
                 txtSearchSites.Name = "txtSearchSites";
-                txtSearchSites.Font = new Font("Segoe UI", 8.5f);
-                txtSearchSites.Location = new Point(20, 65);
-                txtSearchSites.Size = new Size(680, 23);
+                txtSearchSites.Font = new Font("Segoe UI", 10f);
+                txtSearchSites.Location = new Point(10, 11);
+                txtSearchSites.Size = new Size(580, 20);
+                txtSearchSites.BorderStyle = BorderStyle.None;
                 txtSearchSites.TextChanged += (s, e) => {
                     RenderSitesList();
                 };
-                pnlTabSites.Controls.Add(txtSearchSites);
+                pnlSearchSites.Controls.Add(txtSearchSites);
                 SendCueMessage(txtSearchSites.Handle, 0x1501, 0, "Tìm kiếm dự án...");
+
+                ModernButton btnSearchSites = new ModernButton();
+                btnSearchSites.Text = "Tìm";
+                btnSearchSites.Size = new Size(70, 26);
+                btnSearchSites.Location = new Point(600, 7);
+                btnSearchSites.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                btnSearchSites.NormalColor = Color.FromArgb(139, 92, 246);
+                btnSearchSites.HoverColor = Color.FromArgb(124, 58, 237);
+                btnSearchSites.ForeColor = Color.White;
+                btnSearchSites.Click += (s, e) => {
+                    RenderSitesList();
+                };
+                pnlSearchSites.Controls.Add(btnSearchSites);
 
                 pnlSitesContainer = new Panel();
                 pnlSitesContainer.Name = "pnlSitesContainer";
-                pnlSitesContainer.Size = new Size(720, 450);
-                pnlSitesContainer.Location = new Point(20, 95);
+                pnlSitesContainer.Size = new Size(720, 430);
+                pnlSitesContainer.Location = new Point(20, 115);
                 pnlSitesContainer.BackColor = Color.Transparent;
                 pnlSitesContainer.AutoScroll = true;
                 pnlTabSites.Controls.Add(pnlSitesContainer);
@@ -8831,9 +8857,16 @@ $cfg['SendErrorReports']              = 'never';
             string query = "";
             foreach (Control c in pnlTabSites.Controls)
             {
-                if (c.Name == "txtSearchSites")
+                if (c.Name == "pnlSearchSites")
                 {
-                    query = c.Text.Trim();
+                    foreach (Control sc in c.Controls)
+                    {
+                        if (sc.Name == "txtSearchSites")
+                        {
+                            query = sc.Text.Trim();
+                            break;
+                        }
+                    }
                     break;
                 }
             }
