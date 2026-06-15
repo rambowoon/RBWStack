@@ -14065,13 +14065,13 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
             else if (Regex.IsMatch(filename, "(light|300)", RegexOptions.IgnoreCase)) weight = "300";
             else if (Regex.IsMatch(filename, "(medium|500)", RegexOptions.IgnoreCase)) weight = "500";
             else if (Regex.IsMatch(filename, "(semibold|600)", RegexOptions.IgnoreCase)) weight = "600";
-            else if (Regex.IsMatch(filename, "(bold|700)", RegexOptions.IgnoreCase)) weight = "700";
             else if (Regex.IsMatch(filename, "(extrabold|800)", RegexOptions.IgnoreCase)) weight = "800";
+            else if (Regex.IsMatch(filename, "(bold|700)", RegexOptions.IgnoreCase)) weight = "700";
             else if (Regex.IsMatch(filename, "(black|900)", RegexOptions.IgnoreCase)) weight = "900";
 
             string style = Regex.IsMatch(filename, "italic", RegexOptions.IgnoreCase) ? "italic" : "normal";
 
-            string cleanFamily = Regex.Replace(filename, @"[-_]?(thin|100|extralight|200|light|300|medium|500|semibold|demibold|600|bold|700|extrabold|800|black|heavy|900|regular|italic|normal|it|rg)", "", RegexOptions.IgnoreCase);
+            string cleanFamily = Regex.Replace(filename, @"[-_]?(extrabold|800|semibold|demibold|600|bold|700|extralight|200|light|300|thin|100|medium|500|black|heavy|900|regular|italic|normal|it|rg)", "", RegexOptions.IgnoreCase);
             cleanFamily = cleanFamily.Trim('-', '_', ' ');
             if (string.IsNullOrEmpty(cleanFamily))
             {
