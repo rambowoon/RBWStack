@@ -9721,7 +9721,7 @@ $cfg['SendErrorReports']              = 'never';
                             btnNodeStart.ForeColor = Color.White;
                         }
 
-                        toolTip.SetToolTip(btnNodeStart, "Nhấn chuột trái để Bật/Tắt.\r\nNhấn chuột phải để Cấu hình lệnh Start & Tự động chạy.");
+                        toolTip.SetToolTip(btnNodeStart, "Nhấn chuột trái để Bật/Tắt.\r\nNhấn chuột phải để Cấu hình lệnh Start.");
 
                         string captureDir = dir;
                         string captureRelPath = relativeSitePath;
@@ -9820,17 +9820,6 @@ $cfg['SendErrorReports']              = 'never';
                         };
 
                         ContextMenuStrip menuNode = new ContextMenuStrip();
-
-                        ToolStripMenuItem itemAutoStart = new ToolStripMenuItem("Tự động Start khi mở App");
-                        itemAutoStart.Checked = isAutoStart;
-                        itemAutoStart.Click += (s, e) => {
-                            var dict = LoadNodeAutoStartConfig();
-                            bool nextState = !itemAutoStart.Checked;
-                            dict[captureRelPath] = nextState ? "true" : "false";
-                            SaveNodeAutoStartConfig(dict);
-                            RenderSitesList();
-                        };
-                        menuNode.Items.Add(itemAutoStart);
 
                         string currentStartCmd = GetConfiguredNodeStartCommand(captureRelPath, captureDir);
                         menuNode.Items.Add("Cấu hình lệnh Start...", null, (s, e) => {
