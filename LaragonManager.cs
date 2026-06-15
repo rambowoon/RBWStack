@@ -14570,7 +14570,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
             else if (Regex.IsMatch(filename, "(light|300)", RegexOptions.IgnoreCase)) weight = "300";
             else if (Regex.IsMatch(filename, "(medium|500)", RegexOptions.IgnoreCase)) weight = "500";
             else if (Regex.IsMatch(filename, "(semibold|600)", RegexOptions.IgnoreCase)) weight = "600";
-            else if (Regex.IsMatch(filename, "(extrabold|800)", RegexOptions.IgnoreCase)) weight = "800";
+            else if (Regex.IsMatch(filename, "(extrabold|heavy|800)", RegexOptions.IgnoreCase)) weight = "800";
             else if (Regex.IsMatch(filename, "(bold|700)", RegexOptions.IgnoreCase)) weight = "700";
             else if (Regex.IsMatch(filename, "(black|900)", RegexOptions.IgnoreCase)) weight = "900";
 
