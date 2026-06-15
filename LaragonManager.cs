@@ -2750,6 +2750,7 @@ $cfg['SendErrorReports']              = 'never';
         private Process procPHP = null;
         private List<Process> procPHPList = new List<Process>();
         private Dictionary<string, Process> activeTunnels = new Dictionary<string, Process>();
+        private Dictionary<string, Process> runningNodeProcesses = new Dictionary<string, Process>(StringComparer.OrdinalIgnoreCase);
 
         private string pathApacheExe = @"bin\apache\bin\httpd.exe";
         private string pathApacheConf = @"bin\apache\conf\httpd.conf";
@@ -2960,6 +2961,7 @@ $cfg['SendErrorReports']              = 'never';
                     return;
                 }
                 StopAllTunnels();
+                StopAllNodeProcesses();
                 if (trayIcon != null)
                 {
                     trayIcon.Visible = false;
@@ -3087,7 +3089,7 @@ $cfg['SendErrorReports']              = 'never';
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.1", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -4404,13 +4406,13 @@ $cfg['SendErrorReports']              = 'never';
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.0", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.1", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.2.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.2.1).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -4446,7 +4448,7 @@ $cfg['SendErrorReports']              = 'never';
             Label lblProDesc = new Label();
             lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.2.0 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v2.2.1 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -5831,6 +5833,8 @@ $cfg['SendErrorReports']              = 'never';
 
             StartSmtpServer();
 
+            AutoStartNodeProjects();
+
             lblHeaderTitle.Text = "RBW STACK CORE MANAGER";
             TmrStatus_Tick(null, null);
         }
@@ -5840,6 +5844,7 @@ $cfg['SendErrorReports']              = 'never';
             lblHeaderTitle.Text = "RBW STACK CORE MANAGER (STOPPING ALL...)";
             
             StopAllTunnels();
+            StopAllNodeProcesses();
             WebStop_Click(null, null);
             MySqlStop_Click(null, null);
             PhpStop_Click(null, null);
@@ -5905,6 +5910,96 @@ $cfg['SendErrorReports']              = 'never';
             catch { }
         }
 
+        private void StopAllNodeProcesses()
+        {
+            try
+            {
+                foreach (var kvp in runningNodeProcesses)
+                {
+                    Process p = kvp.Value;
+                    if (p != null && !p.HasExited)
+                    {
+                        KillProcessTree(p);
+                    }
+                    try
+                    {
+                        string projDir = Path.Combine(GetSitesParentDirectory(), kvp.Key);
+                        if (Directory.Exists(projDir))
+                        {
+                            string port = DetectNodePort(projDir);
+                            KillProcessOnPort(port);
+                        }
+                    }
+                    catch { }
+                }
+                runningNodeProcesses.Clear();
+            }
+            catch { }
+        }
+
+        private static void KillProcessTree(Process p)
+        {
+            if (p == null) return;
+            try
+            {
+                if (!p.HasExited)
+                {
+                    Process.Start(new ProcessStartInfo("taskkill", string.Format("/F /T /PID {0}", p.Id))
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    }).WaitForExit();
+                }
+            }
+            catch { }
+        }
+
+        private static void KillProcessOnPort(string port)
+        {
+            if (string.IsNullOrEmpty(port)) return;
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", string.Format("/c netstat -ano | findstr LISTENING | findstr :{0}", port))
+                {
+                    RedirectStandardOutput = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                using (Process p = Process.Start(psi))
+                {
+                    string output = p.StandardOutput.ReadToEnd();
+                    p.WaitForExit();
+
+                    foreach (string line in output.Split('\n'))
+                    {
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        string[] tokens = line.Trim().Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                        if (tokens.Length >= 5)
+                        {
+                            string listeningPort = tokens[1];
+                            if (listeningPort.EndsWith(":" + port))
+                            {
+                                string pidStr = tokens[4];
+                                int pid;
+                                if (int.TryParse(pidStr, out pid) && pid > 0)
+                                {
+                                    try
+                                    {
+                                        using (Process targetProc = Process.GetProcessById(pid))
+                                        {
+                                            KillProcessTree(targetProc);
+                                        }
+                                    }
+                                    catch { }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
+
         private void KillOurNodeProcessesOnly()
         {
             try
@@ -5925,6 +6020,216 @@ $cfg['SendErrorReports']              = 'never';
                 }
             }
             catch { }
+        }
+
+        private static string GetNodeStartCommand(string projectDir)
+        {
+            string pkgJsonPath = Path.Combine(projectDir, "package.json");
+            if (File.Exists(pkgJsonPath))
+            {
+                try
+                {
+                    string content = File.ReadAllText(pkgJsonPath);
+                    if (content.Contains("\"dev\""))
+                    {
+                        return "npm run dev";
+                    }
+                }
+                catch { }
+            }
+            return "npm start";
+        }
+
+        private static string DetectNodePort(string projectDir)
+        {
+            string envPath = Path.Combine(projectDir, ".env");
+            if (File.Exists(envPath))
+            {
+                try
+                {
+                    foreach (string line in File.ReadAllLines(envPath))
+                    {
+                        var match = Regex.Match(line, @"^\s*(PORT|VITE_PORT|APP_PORT)\s*=\s*(\d+)");
+                        if (match.Success) return match.Groups[2].Value;
+                    }
+                }
+                catch { }
+            }
+
+            string pkgJsonPath = Path.Combine(projectDir, "package.json");
+            if (File.Exists(pkgJsonPath))
+            {
+                try
+                {
+                    string content = File.ReadAllText(pkgJsonPath);
+                    var match = Regex.Match(content, @"--port\s+(\d+)");
+                    if (match.Success) return match.Groups[1].Value;
+
+                    if (content.Contains("\"vite\"")) return "5173";
+                    if (content.Contains("\"astro\"")) return "4321";
+                }
+                catch { }
+            }
+
+            return "3000";
+        }
+
+        private string GetRunningProjectOnPort(string targetPort, string currentProjectKey)
+        {
+            foreach (var kvp in runningNodeProcesses)
+            {
+                if (kvp.Key.Equals(currentProjectKey, StringComparison.OrdinalIgnoreCase)) continue;
+
+                Process p = kvp.Value;
+                if (p != null && !p.HasExited)
+                {
+                    string projDir = Path.Combine(GetSitesParentDirectory(), kvp.Key);
+                    if (Directory.Exists(projDir))
+                    {
+                        string port = DetectNodePort(projDir);
+                        if (port == targetPort)
+                        {
+                            return kvp.Key;
+                        }
+                    }
+                }
+            }
+            return null;
+        }
+
+        public static string NodeAutoStartConfigPath
+        {
+            get { return ConfigHelper.GetDataFilePath("sites_node_autostart.json"); }
+        }
+
+        public static string NodeCmdConfigPath
+        {
+            get { return ConfigHelper.GetDataFilePath("sites_node_cmd.json"); }
+        }
+
+        public static Dictionary<string, string> LoadNodeAutoStartConfig()
+        {
+            if (!File.Exists(NodeAutoStartConfigPath)) return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try { return DeployDemoForm.ParseJson(File.ReadAllText(NodeAutoStartConfigPath)); }
+            catch { return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
+        }
+
+        public static void SaveNodeAutoStartConfig(Dictionary<string, string> dict)
+        {
+            try { File.WriteAllText(NodeAutoStartConfigPath, DeployDemoForm.SerializeJson(dict)); }
+            catch { }
+        }
+
+        public static Dictionary<string, string> LoadNodeCmdConfig()
+        {
+            if (!File.Exists(NodeCmdConfigPath)) return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            try { return DeployDemoForm.ParseJson(File.ReadAllText(NodeCmdConfigPath)); }
+            catch { return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); }
+        }
+
+        public static void SaveNodeCmdConfig(Dictionary<string, string> dict)
+        {
+            try { File.WriteAllText(NodeCmdConfigPath, DeployDemoForm.SerializeJson(dict)); }
+            catch { }
+        }
+
+        private static string GetConfiguredNodeStartCommand(string relativeSitePath, string projectDir)
+        {
+            var cmdDict = LoadNodeCmdConfig();
+            string customCmd;
+            if (cmdDict.TryGetValue(relativeSitePath, out customCmd) && !string.IsNullOrWhiteSpace(customCmd))
+            {
+                return customCmd;
+            }
+            return GetNodeStartCommand(projectDir);
+        }
+
+        private void AutoStartNodeProjects()
+        {
+            try
+            {
+                string currentSitesDir = GetSitesParentDirectory();
+                if (!Directory.Exists(currentSitesDir)) return;
+
+                string[] subDirs = Directory.GetDirectories(currentSitesDir);
+                var autoStartDict = LoadNodeAutoStartConfig();
+                string wwwDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "www");
+
+                foreach (string dir in subDirs)
+                {
+                    bool isNodeProject = File.Exists(Path.Combine(dir, "package.json"));
+                    if (!isNodeProject) continue;
+
+                    string folderName = Path.GetFileName(dir);
+                    string relativeSitePath = dir.StartsWith(wwwDir, StringComparison.OrdinalIgnoreCase)
+                        ? dir.Substring(wwwDir.Length).TrimStart('\\', '/').Replace('\\', '/')
+                        : folderName;
+
+                    bool isAutoStart = autoStartDict.ContainsKey(relativeSitePath) && autoStartDict[relativeSitePath] == "true";
+                    if (isAutoStart)
+                    {
+                        Process existingProc = null;
+                        if (runningNodeProcesses.TryGetValue(relativeSitePath, out existingProc))
+                        {
+                            if (existingProc != null && !existingProc.HasExited)
+                            {
+                                continue;
+                            }
+                        }
+
+                        // Check port collision before auto-starting
+                        string targetPort = DetectNodePort(dir);
+                        string runningProjOnPort = GetRunningProjectOnPort(targetPort, relativeSitePath);
+                        if (runningProjOnPort != null)
+                        {
+                            continue; // Skip auto-starting this one since the port is already taken
+                        }
+
+                        try
+                        {
+                            string startCmd = GetConfiguredNodeStartCommand(relativeSitePath, dir);
+                            ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c " + startCmd)
+                            {
+                                WorkingDirectory = dir,
+                                CreateNoWindow = true,
+                                UseShellExecute = false
+                            };
+                            Process p = Process.Start(psi);
+                            runningNodeProcesses[relativeSitePath] = p;
+                        }
+                        catch { }
+                    }
+                }
+            }
+            catch { }
+        }
+
+        public static string ShowInputDialog(string text, string caption, string defaultValue)
+        {
+            Form prompt = new Form()
+            {
+                Width = 450,
+                Height = 160,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = caption,
+                StartPosition = FormStartPosition.CenterScreen,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+            Label textLabel = new Label() { Left = 20, Top = 15, Text = text, Width = 400 };
+            TextBox textBox = new TextBox() { Left = 20, Top = 40, Width = 390, Text = defaultValue };
+            Button confirmation = new Button() { Text = "Lưu", Left = 210, Width = 90, Top = 80, DialogResult = DialogResult.OK };
+            Button cancel = new Button() { Text = "Hủy", Left = 310, Width = 90, Top = 80, DialogResult = DialogResult.Cancel };
+            confirmation.Click += (sender, e) => { prompt.Close(); };
+            cancel.Click += (sender, e) => { prompt.Close(); };
+            prompt.Controls.Add(textBox);
+            prompt.Controls.Add(textLabel);
+            prompt.Controls.Add(confirmation);
+            prompt.Controls.Add(cancel);
+            prompt.AcceptButton = confirmation;
+            prompt.CancelButton = cancel;
+
+            return prompt.ShowDialog() == DialogResult.OK ? textBox.Text : defaultValue;
         }
 
         private void StartTunnelProcess(string sitePath)
@@ -8342,7 +8647,7 @@ $cfg['SendErrorReports']              = 'never';
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.2.0  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.2.1  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
@@ -9040,6 +9345,7 @@ $cfg['SendErrorReports']              = 'never';
                         relativeSitePath = folderName;
                     }
                     bool isRoot = activeRootProj.Equals(relativeSitePath, StringComparison.OrdinalIgnoreCase);
+                    string captureSitePath = relativeSitePath;
 
                     Panel pnlCard = new Panel();
                     pnlCard.Size = new Size(700, 48);
@@ -9098,9 +9404,36 @@ $cfg['SendErrorReports']              = 'never';
 
                     ToolTip toolTip = new ToolTip();
 
+                    bool isNodeProject = File.Exists(Path.Combine(dir, "package.json"));
+                    bool isNodeRunning = false;
+                    bool isAutoStart = false;
+                    if (isNodeProject)
+                    {
+                        Process nodeProc = null;
+                        if (runningNodeProcesses.TryGetValue(relativeSitePath, out nodeProc))
+                        {
+                            if (nodeProc != null && !nodeProc.HasExited)
+                            {
+                                isNodeRunning = true;
+                            }
+                            else
+                            {
+                                runningNodeProcesses.Remove(relativeSitePath);
+                            }
+                        }
+                        var autoStartDict = LoadNodeAutoStartConfig();
+                        isAutoStart = autoStartDict.ContainsKey(relativeSitePath) && autoStartDict[relativeSitePath] == "true";
+                    }
+
                     Label lblName = new Label();
-                    lblName.Text = relativeSitePath;
-                    lblName.ForeColor = colorText;
+                    lblName.Text = isNodeProject 
+                        ? (isNodeRunning 
+                            ? relativeSitePath + " 🟢 [Node]" + (isAutoStart ? " (Auto)" : "")
+                            : relativeSitePath + " ⚪ [Node]" + (isAutoStart ? " (Auto)" : ""))
+                        : relativeSitePath;
+                    lblName.ForeColor = isNodeProject 
+                        ? (isNodeRunning ? Color.FromArgb(16, 185, 129) : Color.FromArgb(107, 114, 128)) 
+                        : colorText;
                     lblName.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
                     lblName.Location = new Point(12, 14);
                     lblName.Size = new Size(lblNameWidth, 20);
@@ -9114,7 +9447,11 @@ $cfg['SendErrorReports']              = 'never';
                     GetVHostConfig(relativeSitePath, folderName, out vhostEnabled, out vhostDomain, out vhostUseSsl);
 
                     string siteUrl = "";
-                    if (vhostEnabled)
+                    if (isNodeProject)
+                    {
+                        siteUrl = "http://localhost:" + DetectNodePort(dir);
+                    }
+                    else if (vhostEnabled)
                     {
                         siteUrl = "https://" + vhostDomain;
                     }
@@ -9152,55 +9489,58 @@ $cfg['SendErrorReports']              = 'never';
                         if (me.Button == MouseButtons.Right) { menuUrl.Show(btnUrl, me.Location); }
                     };
 
-                    ModernButton btnVHost = new ModernButton();
-                    btnVHost.Text = "🌐";
-                    btnVHost.Font = new Font("Segoe UI", 10f);
-                    btnVHost.NormalColor = Color.White;
-                    btnVHost.BorderColor = colorBorder;
-                    if (vhostEnabled)
+                    if (!isNodeProject)
                     {
-                        btnVHost.ForeColor = Color.FromArgb(16, 185, 129); // Green
-                        toolTip.SetToolTip(btnVHost, "Host ảo đang BẬT: " + siteUrl + ". Click để cấu hình.");
-                    }
-                    else
-                    {
-                        btnVHost.ForeColor = Color.FromArgb(107, 114, 128); // Gray
-                        toolTip.SetToolTip(btnVHost, "Host ảo đang TẮT. Click để cấu hình.");
-                    }
-                    btnVHost.Location = new Point(btnVHostX, 10);
-                    btnVHost.Size = new Size(32, 28);
-                    btnVHost.Click += (s, e) => {
-                        var vhostForm = new VirtualHostForm(relativeSitePath, folderName);
-                        if (vhostForm.ShowDialog(this) == DialogResult.OK)
+                        ModernButton btnVHost = new ModernButton();
+                        btnVHost.Text = "🌐";
+                        btnVHost.Font = new Font("Segoe UI", 10f);
+                        btnVHost.NormalColor = Color.White;
+                        btnVHost.BorderColor = colorBorder;
+                        if (vhostEnabled)
                         {
-                            RestartWebServicesAndPhp();
-                            RenderSitesList();
+                            btnVHost.ForeColor = Color.FromArgb(16, 185, 129); // Green
+                            toolTip.SetToolTip(btnVHost, "Host ảo đang BẬT: " + siteUrl + ". Click để cấu hình.");
                         }
-                    };
-                    pnlCard.Controls.Add(btnVHost);
+                        else
+                        {
+                            btnVHost.ForeColor = Color.FromArgb(107, 114, 128); // Gray
+                            toolTip.SetToolTip(btnVHost, "Host ảo đang TẮT. Click để cấu hình.");
+                        }
+                        btnVHost.Location = new Point(btnVHostX, 10);
+                        btnVHost.Size = new Size(32, 28);
+                        btnVHost.Click += (s, e) => {
+                            var vhostForm = new VirtualHostForm(relativeSitePath, folderName);
+                            if (vhostForm.ShowDialog(this) == DialogResult.OK)
+                            {
+                                RestartWebServicesAndPhp();
+                                RenderSitesList();
+                            }
+                        };
+                        pnlCard.Controls.Add(btnVHost);
 
-                    ContextMenuStrip menuVHost = new ContextMenuStrip();
-                    menuVHost.Items.Add("Cấu hình Host ảo...", null, (s, e) => {
-                        var vhostForm = new VirtualHostForm(captureRelativePath, folderName);
-                        if (vhostForm.ShowDialog(this) == DialogResult.OK)
-                        {
+                        ContextMenuStrip menuVHost = new ContextMenuStrip();
+                        menuVHost.Items.Add("Cấu hình Host ảo...", null, (s, e) => {
+                            var vhostForm = new VirtualHostForm(captureRelativePath, folderName);
+                            if (vhostForm.ShowDialog(this) == DialogResult.OK)
+                            {
+                                RestartWebServicesAndPhp();
+                                RenderSitesList();
+                            }
+                        });
+                        string toggleText = vhostEnabled ? "Tắt nhanh Host ảo" : "Bật nhanh Host ảo";
+                        menuVHost.Items.Add(toggleText, null, (s, e) => {
+                            SaveVHostConfig(captureRelativePath, !vhostEnabled, folderName + GetVHostSuffix(), vhostUseSsl);
                             RestartWebServicesAndPhp();
                             RenderSitesList();
-                        }
-                    });
-                    string toggleText = vhostEnabled ? "Tắt nhanh Host ảo" : "Bật nhanh Host ảo";
-                    menuVHost.Items.Add(toggleText, null, (s, e) => {
-                        SaveVHostConfig(captureRelativePath, !vhostEnabled, folderName + GetVHostSuffix(), vhostUseSsl);
-                        RestartWebServicesAndPhp();
-                        RenderSitesList();
-                    });
-                    menuVHost.Items.Add("Mở file hosts", null, (s, e) => {
-                        try { Process.Start("notepad.exe", @"C:\Windows\System32\drivers\etc\hosts"); } catch { }
-                    });
-                    btnVHost.ContextMenuStrip = menuVHost;
-                    btnVHost.MouseUp += (s, me) => {
-                        if (me.Button == MouseButtons.Right) { menuVHost.Show(btnVHost, me.Location); }
-                    };
+                        });
+                        menuVHost.Items.Add("Mở file hosts", null, (s, e) => {
+                            try { Process.Start("notepad.exe", @"C:\Windows\System32\drivers\etc\hosts"); } catch { }
+                        });
+                        btnVHost.ContextMenuStrip = menuVHost;
+                        btnVHost.MouseUp += (s, me) => {
+                            if (me.Button == MouseButtons.Right) { menuVHost.Show(btnVHost, me.Location); }
+                        };
+                    }
 
                     ModernButton btnOpen = new ModernButton();
                     btnOpen.Text = "📂";
@@ -9251,274 +9591,450 @@ $cfg['SendErrorReports']              = 'never';
                     toolTip.SetToolTip(btnUrl, siteUrl);
                     toolTip.SetToolTip(btnOpen, "Mở thư mục dự án");
 
-                    ModernButton btnSetRoot = new ModernButton();
-                    btnSetRoot.Size = new Size(32, 28);
-                    btnSetRoot.Location = new Point(btnSetRootX, 10);
-                    btnSetRoot.Font = new Font("Segoe UI", 10f);
-                    btnSetRoot.CornerRadius = 4;
-                    btnSetRoot.BorderColor = colorBorder;
-
-                    if (isRoot)
+                    if (!isNodeProject)
                     {
-                        btnSetRoot.Text = "🏠";
-                        btnSetRoot.NormalColor = Color.FromArgb(16, 185, 129); // Green background
-                        btnSetRoot.HoverColor = Color.FromArgb(5, 150, 105);
-                        btnSetRoot.ForeColor = Color.White;
-                        toolTip.SetToolTip(btnSetRoot, "Dự án đang chạy tại https://localhost (Root). Click để hủy set root.");
-                    }
-                    else
-                    {
-                        btnSetRoot.Text = "🏠";
-                        btnSetRoot.NormalColor = Color.White;
-                        btnSetRoot.HoverColor = Color.FromArgb(243, 244, 246);
-                        btnSetRoot.ForeColor = Color.FromArgb(107, 114, 128); // Gray color
-                        toolTip.SetToolTip(btnSetRoot, "Set dự án này chạy trực tiếp tại https://localhost (Root)");
-                    }
+                        ModernButton btnSetRoot = new ModernButton();
+                        btnSetRoot.Size = new Size(32, 28);
+                        btnSetRoot.Location = new Point(btnSetRootX, 10);
+                        btnSetRoot.Font = new Font("Segoe UI", 10f);
+                        btnSetRoot.CornerRadius = 4;
+                        btnSetRoot.BorderColor = colorBorder;
 
-                    btnSetRoot.Click += (s, e) => {
-                        string currentRoot = LoadRootProjectConfig();
-                        if (currentRoot.Equals(captureRelativePath, StringComparison.OrdinalIgnoreCase))
+                        if (isRoot)
                         {
-                            SaveRootProjectConfig("");
+                            btnSetRoot.Text = "🏠";
+                            btnSetRoot.NormalColor = Color.FromArgb(16, 185, 129); // Green background
+                            btnSetRoot.HoverColor = Color.FromArgb(5, 150, 105);
+                            btnSetRoot.ForeColor = Color.White;
+                            toolTip.SetToolTip(btnSetRoot, "Dự án đang chạy tại https://localhost (Root). Click để hủy set root.");
                         }
                         else
                         {
-                            SaveRootProjectConfig(captureRelativePath);
+                            btnSetRoot.Text = "🏠";
+                            btnSetRoot.NormalColor = Color.White;
+                            btnSetRoot.HoverColor = Color.FromArgb(243, 244, 246);
+                            btnSetRoot.ForeColor = Color.FromArgb(107, 114, 128); // Gray color
+                            toolTip.SetToolTip(btnSetRoot, "Set dự án này chạy trực tiếp tại https://localhost (Root)");
                         }
-                        RestartWebServicesAndPhp();
-                        RenderSitesList();
-                    };
-                    pnlCard.Controls.Add(btnSetRoot);
 
-                    ContextMenuStrip menuRoot = new ContextMenuStrip();
-                    if (isRoot)
-                    {
-                        menuRoot.Items.Add("Hủy đặt làm Root Project", null, (s, e) => {
-                            SaveRootProjectConfig("");
+                        btnSetRoot.Click += (s, e) => {
+                            string currentRoot = LoadRootProjectConfig();
+                            if (currentRoot.Equals(captureRelativePath, StringComparison.OrdinalIgnoreCase))
+                            {
+                                SaveRootProjectConfig("");
+                            }
+                            else
+                            {
+                                SaveRootProjectConfig(captureRelativePath);
+                            }
                             RestartWebServicesAndPhp();
                             RenderSitesList();
-                        });
-                    }
-                    else
-                    {
-                        menuRoot.Items.Add("Đặt làm Root Project", null, (s, e) => {
-                            SaveRootProjectConfig(captureRelativePath);
-                            RestartWebServicesAndPhp();
-                            RenderSitesList();
-                        });
-                    }
-                    btnSetRoot.ContextMenuStrip = menuRoot;
-                    btnSetRoot.MouseUp += (s, me) => {
-                        if (me.Button == MouseButtons.Right) { menuRoot.Show(btnSetRoot, me.Location); }
-                    };
-
-                    ComboBox cbPhp = new NoScrollComboBox();
-                    cbPhp.BackColor = Color.White;
-                    cbPhp.ForeColor = Color.FromArgb(55, 65, 81);
-                    cbPhp.FlatStyle = FlatStyle.Flat;
-                    cbPhp.DropDownStyle = ComboBoxStyle.DropDownList;
-                    cbPhp.Size = new Size(125, 25);
-                    cbPhp.Location = new Point(cbPhpX, 11);
-
-                    foreach (var ver in phpVersions)
-                    {
-                        cbPhp.Items.Add(ver);
-                    }
-
-                    string mappedVer = "";
-                    if (sitesConfig.TryGetValue(relativeSitePath, out mappedVer))
-                    {
-                        int idx = cbPhp.FindStringExact(mappedVer);
-                        cbPhp.SelectedIndex = (idx >= 0) ? idx : 0;
-                    }
-                    else
-                    {
-                        cbPhp.SelectedIndex = 0;
-                    }
-
-                    string captureSitePath = relativeSitePath;
-                    cbPhp.SelectedIndexChanged += (s, e) => {
-                        string selected = cbPhp.SelectedItem.ToString();
-                        Dictionary<string, string> currentConfig = LoadSitesConfig();
-                        if (selected == "Mặc định (Default)")
-                        {
-                            currentConfig.Remove(captureSitePath);
-                        }
-                        else
-                        {
-                            currentConfig[captureSitePath] = selected;
-                        }
-                        SaveSitesConfig(currentConfig);
-                        RestartWebServicesAndPhp();
-                    };
-                    pnlCard.Controls.Add(cbPhp);
-
-                    ModernButton btnTunnel = new ModernButton();
-                    btnTunnel.Size = new Size(32, 28);
-                    btnTunnel.Location = new Point(btnTunnelX, 10);
-                    btnTunnel.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-                    btnTunnel.CornerRadius = 4;
-                    btnTunnel.BorderColor = colorBorder;
-
-                    ModernButton btnTunnelUrl = new ModernButton();
-                    btnTunnelUrl.Size = new Size(32, 28);
-                    btnTunnelUrl.Location = new Point(btnTunnelUrlX, 10);
-                    btnTunnelUrl.Text = "🔗";
-                    btnTunnelUrl.Font = new Font("Segoe UI", 10f);
-                    btnTunnelUrl.NormalColor = Color.White;
-                    btnTunnelUrl.BorderColor = colorBorder;
-                    btnTunnelUrl.ForeColor = Color.FromArgb(16, 185, 129);
-                    btnTunnelUrl.Visible = false;
-
-                    if (isTunnelActive)
-                    {
-                        btnTunnel.Text = "⏹";
-                        btnTunnel.NormalColor = Color.FromArgb(239, 68, 68);
-                        btnTunnel.HoverColor = Color.FromArgb(220, 38, 38);
-                        btnTunnel.ForeColor = Color.White;
-
-                        string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
-                        btnTunnelUrl.Visible = true;
-                        btnTunnelUrl.Click += (s, e) => {
-                            try { Process.Start(tunnelLink); } catch { }
                         };
-                        toolTip.SetToolTip(btnTunnel, "Dừng Cloudflare Tunnel");
-                        toolTip.SetToolTip(btnTunnelUrl, "Mở Cloudflare Tunnel link: " + tunnelLink);
+                        pnlCard.Controls.Add(btnSetRoot);
+
+                        ContextMenuStrip menuRoot = new ContextMenuStrip();
+                        if (isRoot)
+                        {
+                            menuRoot.Items.Add("Hủy đặt làm Root Project", null, (s, e) => {
+                                SaveRootProjectConfig("");
+                                RestartWebServicesAndPhp();
+                                RenderSitesList();
+                            });
+                        }
+                        else
+                        {
+                            menuRoot.Items.Add("Đặt làm Root Project", null, (s, e) => {
+                                SaveRootProjectConfig(captureRelativePath);
+                                RestartWebServicesAndPhp();
+                                RenderSitesList();
+                            });
+                        }
+                        btnSetRoot.ContextMenuStrip = menuRoot;
+                        btnSetRoot.MouseUp += (s, me) => {
+                            if (me.Button == MouseButtons.Right) { menuRoot.Show(btnSetRoot, me.Location); }
+                        };
+                    }
+
+                    if (!isNodeProject)
+                    {
+                        ComboBox cbPhp = new NoScrollComboBox();
+                        cbPhp.BackColor = Color.White;
+                        cbPhp.ForeColor = Color.FromArgb(55, 65, 81);
+                        cbPhp.FlatStyle = FlatStyle.Flat;
+                        cbPhp.DropDownStyle = ComboBoxStyle.DropDownList;
+                        cbPhp.Size = new Size(125, 25);
+                        cbPhp.Location = new Point(cbPhpX, 11);
+
+                        foreach (var ver in phpVersions)
+                        {
+                            cbPhp.Items.Add(ver);
+                        }
+
+                        string mappedVer = "";
+                        if (sitesConfig.TryGetValue(relativeSitePath, out mappedVer))
+                        {
+                            int idx = cbPhp.FindStringExact(mappedVer);
+                            cbPhp.SelectedIndex = (idx >= 0) ? idx : 0;
+                        }
+                        else
+                        {
+                            cbPhp.SelectedIndex = 0;
+                        }
+
+                        cbPhp.SelectedIndexChanged += (s, e) => {
+                            string selected = cbPhp.SelectedItem.ToString();
+                            Dictionary<string, string> currentConfig = LoadSitesConfig();
+                            if (selected == "Mặc định (Default)")
+                            {
+                                currentConfig.Remove(captureSitePath);
+                            }
+                            else
+                            {
+                                currentConfig[captureSitePath] = selected;
+                            }
+                            SaveSitesConfig(currentConfig);
+                            RestartWebServicesAndPhp();
+                        };
+                        pnlCard.Controls.Add(cbPhp);
                     }
                     else
                     {
-                        btnTunnel.Text = "☁";
-                        btnTunnel.NormalColor = Color.White;
-                        btnTunnel.HoverColor = Color.FromArgb(243, 244, 246);
-                        btnTunnel.ForeColor = Color.FromArgb(59, 130, 246);
+                        ModernButton btnNodeStart = new ModernButton();
+                        btnNodeStart.Size = new Size(110, 28);
+                        btnNodeStart.Location = new Point(cbPhpX, 10);
+                        btnNodeStart.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
+                        btnNodeStart.CornerRadius = 4;
+                        btnNodeStart.BorderColor = colorBorder;
+
+                        if (isNodeRunning)
+                        {
+                            btnNodeStart.Text = "Stop Node ⏹";
+                            btnNodeStart.NormalColor = Color.FromArgb(239, 68, 68);
+                            btnNodeStart.HoverColor = Color.FromArgb(220, 38, 38);
+                            btnNodeStart.ForeColor = Color.White;
+                        }
+                        else
+                        {
+                            btnNodeStart.Text = "Start Node ⚡";
+                            btnNodeStart.NormalColor = Color.FromArgb(16, 185, 129);
+                            btnNodeStart.HoverColor = Color.FromArgb(5, 150, 105);
+                            btnNodeStart.ForeColor = Color.White;
+                        }
+
+                        toolTip.SetToolTip(btnNodeStart, "Nhấn chuột trái để Bật/Tắt.\r\nNhấn chuột phải để Cấu hình lệnh Start & Tự động chạy.");
+
+                        string captureDir = dir;
+                        string captureRelPath = relativeSitePath;
+                        btnNodeStart.Click += (s, e) => {
+                            Process nodeProc2 = null;
+                            bool isRunning2 = false;
+                            if (runningNodeProcesses.TryGetValue(captureRelPath, out nodeProc2))
+                            {
+                                if (nodeProc2 != null && !nodeProc2.HasExited)
+                                {
+                                    isRunning2 = true;
+                                }
+                            }
+
+                            if (isRunning2)
+                            {
+                                KillProcessTree(nodeProc2);
+                                try
+                                {
+                                    string targetPort = DetectNodePort(captureDir);
+                                    KillProcessOnPort(targetPort);
+                                }
+                                catch { }
+                                runningNodeProcesses.Remove(captureRelPath);
+
+                                try
+                                {
+                                    var dict = LoadNodeAutoStartConfig();
+                                    dict[captureRelPath] = "false";
+                                    SaveNodeAutoStartConfig(dict);
+                                }
+                                catch { }
+                            }
+                            else
+                            {
+                                string targetPort = DetectNodePort(captureDir);
+                                string runningProjOnPort = GetRunningProjectOnPort(targetPort, captureRelPath);
+                                if (runningProjOnPort != null)
+                                {
+                                    var result = MessageBox.Show(
+                                        string.Format("Cổng {0} đang được sử dụng bởi dự án '{1}'. Bạn có muốn dừng dự án đó để khởi động dự án này không?", targetPort, runningProjOnPort),
+                                        "Trùng cổng mạng (Port Collision)",
+                                        MessageBoxButtons.YesNo,
+                                        MessageBoxIcon.Question
+                                    );
+                                    if (result == DialogResult.Yes)
+                                    {
+                                        Process oldProc = null;
+                                        if (runningNodeProcesses.TryGetValue(runningProjOnPort, out oldProc))
+                                        {
+                                            KillProcessTree(oldProc);
+                                            runningNodeProcesses.Remove(runningProjOnPort);
+                                        }
+                                        KillProcessOnPort(targetPort);
+
+                                        try
+                                        {
+                                            var dict = LoadNodeAutoStartConfig();
+                                            dict[runningProjOnPort] = "false";
+                                            SaveNodeAutoStartConfig(dict);
+                                        }
+                                        catch { }
+                                    }
+                                    else
+                                    {
+                                        return;
+                                    }
+                                }
+
+                                try
+                                {
+                                    string startCmd = GetConfiguredNodeStartCommand(captureRelPath, captureDir);
+                                    ProcessStartInfo psi = new ProcessStartInfo("cmd.exe", "/c " + startCmd)
+                                    {
+                                        WorkingDirectory = captureDir,
+                                        CreateNoWindow = true,
+                                        UseShellExecute = false
+                                    };
+                                    Process p = Process.Start(psi);
+                                    runningNodeProcesses[captureRelPath] = p;
+
+                                    try
+                                    {
+                                        var dict = LoadNodeAutoStartConfig();
+                                        dict[captureRelPath] = "true";
+                                        SaveNodeAutoStartConfig(dict);
+                                    }
+                                    catch { }
+                                }
+                                catch (Exception ex)
+                                {
+                                    MessageBox.Show("Không thể khởi động dự án Node.js: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                                }
+                            }
+                            RenderSitesList();
+                        };
+
+                        ContextMenuStrip menuNode = new ContextMenuStrip();
+
+                        ToolStripMenuItem itemAutoStart = new ToolStripMenuItem("Tự động Start khi mở App");
+                        itemAutoStart.Checked = isAutoStart;
+                        itemAutoStart.Click += (s, e) => {
+                            var dict = LoadNodeAutoStartConfig();
+                            bool nextState = !itemAutoStart.Checked;
+                            dict[captureRelPath] = nextState ? "true" : "false";
+                            SaveNodeAutoStartConfig(dict);
+                            RenderSitesList();
+                        };
+                        menuNode.Items.Add(itemAutoStart);
+
+                        string currentStartCmd = GetConfiguredNodeStartCommand(captureRelPath, captureDir);
+                        menuNode.Items.Add("Cấu hình lệnh Start...", null, (s, e) => {
+                            string newCmd = ShowInputDialog(
+                                "Nhập câu lệnh Start cho dự án Node.js này (để trống để khôi phục mặc định):",
+                                "Cấu hình câu lệnh Start - " + captureRelPath,
+                                currentStartCmd
+                            );
+                            if (newCmd != null)
+                            {
+                                var cmdDict = LoadNodeCmdConfig();
+                                if (string.IsNullOrWhiteSpace(newCmd))
+                                {
+                                    cmdDict.Remove(captureRelPath);
+                                }
+                                else
+                                {
+                                    cmdDict[captureRelPath] = newCmd.Trim();
+                                }
+                                SaveNodeCmdConfig(cmdDict);
+                                RenderSitesList();
+                            }
+                        });
+
+                        btnNodeStart.ContextMenuStrip = menuNode;
+                        btnNodeStart.MouseUp += (s, me) => {
+                            if (me.Button == MouseButtons.Right) { menuNode.Show(btnNodeStart, me.Location); }
+                        };
+
+                        pnlCard.Controls.Add(btnNodeStart);
+                    }
+
+                    if (!isNodeProject)
+                    {
+                        ModernButton btnTunnel = new ModernButton();
+                        btnTunnel.Size = new Size(32, 28);
+                        btnTunnel.Location = new Point(btnTunnelX, 10);
+                        btnTunnel.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
+                        btnTunnel.CornerRadius = 4;
+                        btnTunnel.BorderColor = colorBorder;
+
+                        ModernButton btnTunnelUrl = new ModernButton();
+                        btnTunnelUrl.Size = new Size(32, 28);
+                        btnTunnelUrl.Location = new Point(btnTunnelUrlX, 10);
+                        btnTunnelUrl.Text = "🔗";
+                        btnTunnelUrl.Font = new Font("Segoe UI", 10f);
+                        btnTunnelUrl.NormalColor = Color.White;
+                        btnTunnelUrl.BorderColor = colorBorder;
+                        btnTunnelUrl.ForeColor = Color.FromArgb(16, 185, 129);
                         btnTunnelUrl.Visible = false;
-                        toolTip.SetToolTip(btnTunnel, "Kích hoạt Cloudflare Tunnel");
-                    }
 
-                    btnTunnel.Click += (s, e) => {
-                        Dictionary<string, string> currTunnels = LoadTunnelsConfig();
-                        string mapped = "";
-                        bool isActive = false;
-                        if (currTunnels.TryGetValue(captureSitePath, out mapped))
+                        if (isTunnelActive)
                         {
-                            string[] p = mapped.Split('|');
-                            if (p.Length >= 3) isActive = (p[2] == "1");
-                        }
+                            btnTunnel.Text = "⏹";
+                            btnTunnel.NormalColor = Color.FromArgb(239, 68, 68);
+                            btnTunnel.HoverColor = Color.FromArgb(220, 38, 38);
+                            btnTunnel.ForeColor = Color.White;
 
-                        if (isActive)
-                        {
-                            StopTunnelProcess(captureSitePath);
-                            currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
-                            SaveTunnelsConfig(currTunnels);
-                            RestartWebServicesAndPhp();
-                            RenderSitesList();
+                            string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
+                            btnTunnelUrl.Visible = true;
+                            btnTunnelUrl.Click += (s, e) => {
+                                try { Process.Start(tunnelLink); } catch { }
+                            };
+                            toolTip.SetToolTip(btnTunnel, "Dừng Cloudflare Tunnel");
+                            toolTip.SetToolTip(btnTunnelUrl, "Mở Cloudflare Tunnel link: " + tunnelLink);
                         }
                         else
                         {
-                            btnTunnel.Text = "⏳";
-                            btnTunnel.Enabled = false;
-                            StartTunnelProcess(captureSitePath);
-                        }
-                    };
-                    pnlCard.Controls.Add(btnTunnel);
-                    pnlCard.Controls.Add(btnTunnelUrl);
-
-                    ContextMenuStrip menuTunnel = new ContextMenuStrip();
-                    string tunnelToggle = isTunnelActive ? "Dừng Cloudflare Tunnel" : "Kích hoạt Cloudflare Tunnel";
-                    menuTunnel.Items.Add(tunnelToggle, null, (s, e) => {
-                        Dictionary<string, string> currTunnels = LoadTunnelsConfig();
-                        string mapped = "";
-                        bool isActive = false;
-                        if (currTunnels.TryGetValue(captureSitePath, out mapped))
-                        {
-                            string[] p = mapped.Split('|');
-                            if (p.Length >= 3) isActive = (p[2] == "1");
+                            btnTunnel.Text = "☁";
+                            btnTunnel.NormalColor = Color.White;
+                            btnTunnel.HoverColor = Color.FromArgb(243, 244, 246);
+                            btnTunnel.ForeColor = Color.FromArgb(59, 130, 246);
+                            btnTunnelUrl.Visible = false;
+                            toolTip.SetToolTip(btnTunnel, "Kích hoạt Cloudflare Tunnel");
                         }
 
-                        if (isActive)
+                        btnTunnel.Click += (s, e) => {
+                            Dictionary<string, string> currTunnels = LoadTunnelsConfig();
+                            string mapped = "";
+                            bool isActive = false;
+                            if (currTunnels.TryGetValue(captureSitePath, out mapped))
+                            {
+                                string[] p = mapped.Split('|');
+                                if (p.Length >= 3) isActive = (p[2] == "1");
+                            }
+
+                            if (isActive)
+                            {
+                                StopTunnelProcess(captureSitePath);
+                                currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
+                                SaveTunnelsConfig(currTunnels);
+                                RestartWebServicesAndPhp();
+                                RenderSitesList();
+                            }
+                            else
+                            {
+                                btnTunnel.Text = "⏳";
+                                btnTunnel.Enabled = false;
+                                StartTunnelProcess(captureSitePath);
+                            }
+                        };
+                        pnlCard.Controls.Add(btnTunnel);
+                        pnlCard.Controls.Add(btnTunnelUrl);
+
+                        ContextMenuStrip menuTunnel = new ContextMenuStrip();
+                        string tunnelToggle = isTunnelActive ? "Dừng Cloudflare Tunnel" : "Kích hoạt Cloudflare Tunnel";
+                        menuTunnel.Items.Add(tunnelToggle, null, (s, e) => {
+                            Dictionary<string, string> currTunnels = LoadTunnelsConfig();
+                            string mapped = "";
+                            bool isActive = false;
+                            if (currTunnels.TryGetValue(captureSitePath, out mapped))
+                            {
+                                string[] p = mapped.Split('|');
+                                if (p.Length >= 3) isActive = (p[2] == "1");
+                            }
+
+                            if (isActive)
+                            {
+                                StopTunnelProcess(captureSitePath);
+                                currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
+                                SaveTunnelsConfig(currTunnels);
+                                RestartWebServicesAndPhp();
+                                RenderSitesList();
+                            }
+                            else
+                            {
+                                btnTunnel.Text = "⏳";
+                                btnTunnel.Enabled = false;
+                                StartTunnelProcess(captureSitePath);
+                            }
+                        });
+                        if (isTunnelActive)
                         {
-                            StopTunnelProcess(captureSitePath);
-                            currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
-                            SaveTunnelsConfig(currTunnels);
-                            RestartWebServicesAndPhp();
-                            RenderSitesList();
+                            string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
+                            menuTunnel.Items.Add("Mở liên kết Tunnel", null, (s, e) => {
+                                try { Process.Start(tunnelLink); } catch { }
+                            });
+                            menuTunnel.Items.Add("Sao chép liên kết Tunnel", null, (s, e) => {
+                                try { Clipboard.SetText(tunnelLink); } catch { }
+                            });
+                        }
+                        btnTunnel.ContextMenuStrip = menuTunnel;
+                        btnTunnel.MouseUp += (s, me) => {
+                            if (me.Button == MouseButtons.Right) { menuTunnel.Show(btnTunnel, me.Location); }
+                        };
+                    }
+
+                    if (!isNodeProject)
+                    {
+                        // --- Nut Deploy Demo ---
+                        string captureDir2 = dir;
+                        string captureSiteDeploy2 = captureSitePath;
+                        string deployStatusKey = captureDir2;
+                        bool alreadyDeployed = DeployDemoForm.IsDeployed(deployStatusKey);
+
+                        ModernButton btnDeploy = new ModernButton();
+                        btnDeploy.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+                        btnDeploy.CornerRadius = 4;
+                        btnDeploy.Size = new Size(32, 28);
+                        btnDeploy.Location = new Point(btnDeployX, 10);
+                        toolTip.SetToolTip(btnDeploy, alreadyDeployed ? "Đã deploy - click để mở khóa deploy lại" : "Deploy Demo lên hosting");
+
+                        if (alreadyDeployed)
+                        {
+                            btnDeploy.Text = "⚡";
+                            btnDeploy.NormalColor = Color.FromArgb(240, 253, 244);
+                            btnDeploy.HoverColor = Color.FromArgb(220, 252, 231);
+                            btnDeploy.BorderColor = Color.FromArgb(74, 222, 128);
+                            btnDeploy.ForeColor = Color.FromArgb(21, 128, 61);
                         }
                         else
                         {
-                            btnTunnel.Text = "⏳";
-                            btnTunnel.Enabled = false;
-                            StartTunnelProcess(captureSitePath);
+                            btnDeploy.Text = "⚡";
+                            btnDeploy.NormalColor = Color.White;
+                            btnDeploy.HoverColor = Color.FromArgb(245, 243, 255);
+                            btnDeploy.BorderColor = colorBorder;
+                            btnDeploy.ForeColor = Color.FromArgb(139, 92, 246);
                         }
-                    });
-                    if (isTunnelActive)
-                    {
-                        string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
-                        menuTunnel.Items.Add("Mở liên kết Tunnel", null, (s, e) => {
-                            try { Process.Start(tunnelLink); } catch { }
+                        btnDeploy.Click += (s, e) => {
+                            var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
+                            deployForm.ShowDialog(this);
+                            RenderSitesList(); // refresh card after deploy
+                        };
+                        pnlCard.Controls.Add(btnDeploy);
+
+                        ContextMenuStrip menuDeploy = new ContextMenuStrip();
+                        menuDeploy.Items.Add(alreadyDeployed ? "Mở khóa & Deploy lại..." : "Deploy Demo lên hosting...", null, (s, e) => {
+                            var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
+                            deployForm.ShowDialog(this);
+                            RenderSitesList();
                         });
-                        menuTunnel.Items.Add("Sao chép liên kết Tunnel", null, (s, e) => {
-                            try { Clipboard.SetText(tunnelLink); } catch { }
+                        menuDeploy.Items.Add("Mở phpMyAdmin", null, (s, e) => {
+                            try { Process.Start("http://localhost/phpmyadmin"); } catch { }
                         });
+                        menuDeploy.Items.Add(new ToolStripSeparator());
+                        menuDeploy.Items.Add("Cài đặt Fonts...", null, (s, e) => {
+                            var fontForm = new FontInstallerForm(captureDir2, captureSiteDeploy2);
+                            fontForm.ShowDialog(this);
+                        });
+                        btnDeploy.ContextMenuStrip = menuDeploy;
+                        btnDeploy.MouseUp += (s, me) => {
+                            if (me.Button == MouseButtons.Right) { menuDeploy.Show(btnDeploy, me.Location); }
+                        };
                     }
-                    btnTunnel.ContextMenuStrip = menuTunnel;
-                    btnTunnel.MouseUp += (s, me) => {
-                        if (me.Button == MouseButtons.Right) { menuTunnel.Show(btnTunnel, me.Location); }
-                    };
-
-                    // --- Nut Deploy Demo ---
-                    string captureDir2 = dir;
-                    string captureSiteDeploy2 = captureSitePath;
-                    string deployStatusKey = captureDir2;
-                    bool alreadyDeployed = DeployDemoForm.IsDeployed(deployStatusKey);
-
-                    ModernButton btnDeploy = new ModernButton();
-                    btnDeploy.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
-                    btnDeploy.CornerRadius = 4;
-                    btnDeploy.Size = new Size(32, 28);
-                    btnDeploy.Location = new Point(btnDeployX, 10);
-                    toolTip.SetToolTip(btnDeploy, alreadyDeployed ? "Đã deploy - click để mở khóa deploy lại" : "Deploy Demo lên hosting");
-
-                    if (alreadyDeployed)
-                    {
-                        btnDeploy.Text = "⚡";
-                        btnDeploy.NormalColor = Color.FromArgb(240, 253, 244);
-                        btnDeploy.HoverColor = Color.FromArgb(220, 252, 231);
-                        btnDeploy.BorderColor = Color.FromArgb(74, 222, 128);
-                        btnDeploy.ForeColor = Color.FromArgb(21, 128, 61);
-                    }
-                    else
-                    {
-                        btnDeploy.Text = "⚡";
-                        btnDeploy.NormalColor = Color.White;
-                        btnDeploy.HoverColor = Color.FromArgb(245, 243, 255);
-                        btnDeploy.BorderColor = colorBorder;
-                        btnDeploy.ForeColor = Color.FromArgb(139, 92, 246);
-                    }
-                    btnDeploy.Click += (s, e) => {
-                        var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
-                        deployForm.ShowDialog(this);
-                        RenderSitesList(); // refresh card after deploy
-                    };
-                    pnlCard.Controls.Add(btnDeploy);
-
-                    ContextMenuStrip menuDeploy = new ContextMenuStrip();
-                    menuDeploy.Items.Add(alreadyDeployed ? "Mở khóa & Deploy lại..." : "Deploy Demo lên hosting...", null, (s, e) => {
-                        var deployForm = new DeployDemoForm(captureDir2, captureSiteDeploy2);
-                        deployForm.ShowDialog(this);
-                        RenderSitesList();
-                    });
-                    menuDeploy.Items.Add("Mở phpMyAdmin", null, (s, e) => {
-                        try { Process.Start("http://localhost/phpmyadmin"); } catch { }
-                    });
-                    menuDeploy.Items.Add(new ToolStripSeparator());
-                    menuDeploy.Items.Add("Cài đặt Fonts...", null, (s, e) => {
-                        var fontForm = new FontInstallerForm(captureDir2, captureSiteDeploy2);
-                        fontForm.ShowDialog(this);
-                    });
-                    btnDeploy.ContextMenuStrip = menuDeploy;
-                    btnDeploy.MouseUp += (s, me) => {
-                        if (me.Button == MouseButtons.Right) { menuDeploy.Show(btnDeploy, me.Location); }
-                    };
 
                     currentY += 56;
                 }
