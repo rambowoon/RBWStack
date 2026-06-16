@@ -6074,6 +6074,21 @@ $cfg['SendErrorReports']              = 'never';
             return "3000";
         }
 
+        private static bool IsNodeProject(string dir)
+        {
+            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) return false;
+
+            if (File.Exists(Path.Combine(dir, "composer.json")) ||
+                File.Exists(Path.Combine(dir, "artisan")) ||
+                File.Exists(Path.Combine(dir, "index.php")) ||
+                File.Exists(Path.Combine(dir, "wp-config.php")))
+            {
+                return false;
+            }
+
+            return Directory.Exists(Path.Combine(dir, "node_modules")) || File.Exists(Path.Combine(dir, "package.json"));
+        }
+
         private string GetRunningProjectOnPort(string targetPort, string currentProjectKey)
         {
             foreach (var kvp in runningNodeProcesses)
@@ -6157,7 +6172,7 @@ $cfg['SendErrorReports']              = 'never';
 
                 foreach (string dir in subDirs)
                 {
-                    bool isNodeProject = File.Exists(Path.Combine(dir, "package.json"));
+                    bool isNodeProject = IsNodeProject(dir);
                     if (!isNodeProject) continue;
 
                     string folderName = Path.GetFileName(dir);
@@ -9404,7 +9419,7 @@ $cfg['SendErrorReports']              = 'never';
 
                     ToolTip toolTip = new ToolTip();
 
-                    bool isNodeProject = File.Exists(Path.Combine(dir, "package.json"));
+                    bool isNodeProject = IsNodeProject(dir);
                     bool isNodeRunning = false;
                     bool isAutoStart = false;
                     if (isNodeProject)
