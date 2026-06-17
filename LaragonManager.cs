@@ -3303,8 +3303,8 @@ $cfg['SendErrorReports']              = 'never';
             pnlSidebar.Controls.Add(btnTabDownload);
 
             btnTabAbout = new ModernButton();
-            btnTabAbout.Text = "About";
-            btnTabAbout.IconGlyph = "\uE946"; // Info Circle
+            btnTabAbout.Text = "Update";
+            btnTabAbout.IconGlyph = "\uE895"; // Update / Sync
             btnTabAbout.Size = new Size(198, 34);
             btnTabAbout.Location = new Point(1, 516);
             btnTabAbout.NormalColor = Color.Transparent;
