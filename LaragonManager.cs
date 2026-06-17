@@ -14263,8 +14263,16 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnImport.Size = new Size(130, 28);
                 btnImport.Location = new Point(12, Y_button);
                 btnImport.Click += (s, e) => {
-                    // Google Font tự động chèn hết các biến thể, không cần chọn
-                    var selected = new List<string>(gInfo.Variants);
+                    var selected = new List<string>();
+                    foreach (var chk in checkboxes)
+                    {
+                        if (chk.Checked) selected.Add((string)chk.Tag);
+                    }
+                    if (selected.Count == 0)
+                    {
+                        MessageBox.Show("Vui lòng chọn ít nhất một biến thể font!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                     AddGoogleFontImport(gInfo, selected);
                 };
                 pnlCard.Controls.Add(btnImport);
@@ -14278,8 +14286,16 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                 btnDownload.Size = new Size(180, 28);
                 btnDownload.Location = new Point(150, Y_button);
                 btnDownload.Click += (s, e) => {
-                    // Google Font tự động chèn hết các biến thể, không cần chọn
-                    var selected = new List<string>(gInfo.Variants);
+                    var selected = new List<string>();
+                    foreach (var chk in checkboxes)
+                    {
+                        if (chk.Checked) selected.Add((string)chk.Tag);
+                    }
+                    if (selected.Count == 0)
+                    {
+                        MessageBox.Show("Vui lòng chọn ít nhất một biến thể font!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
                     DownloadGoogleFontSelfHost(gInfo, selected);
                 };
                 pnlCard.Controls.Add(btnDownload);
