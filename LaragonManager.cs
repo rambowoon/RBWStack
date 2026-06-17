@@ -5719,7 +5719,23 @@ $cfg['SendErrorReports']              = 'never';
             // Tắt bất kỳ php-cgi nào đang chạy trước để dọn dẹp cổng
             PhpStop_Click(null, null);
 
-            // Tự động làm mới session save path và tối ưu hóa php.ini cho CGI trước khi chạy
+            // Tự động tối ưu hóa php.ini cho TẤT CẢ phiên bản PHP được tìm thấy trong bin/php
+            try
+            {
+                string phpBinRoot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, @"bin\php");
+                if (Directory.Exists(phpBinRoot))
+                {
+                    foreach (string dir in Directory.GetDirectories(phpBinRoot))
+                    {
+                        string iniPath = Path.Combine(dir, "php.ini");
+                        if (File.Exists(iniPath))
+                        {
+                            ConfigurePHPIni(iniPath);
+                        }
+                    }
+                }
+            }
+            catch { }
             ConfigurePHPIni(pathPhpConf);
 
             try
