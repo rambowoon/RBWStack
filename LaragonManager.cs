@@ -14529,6 +14529,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                         var styleM = Regex.Match(block, @"font-style:\s*([a-zA-Z]+)");
                         var weightM = Regex.Match(block, @"font-weight:\s*(\d+)");
                         var urlM = Regex.Match(block, @"url\((https://fonts.gstatic.com/[^\)]+)\)");
+                        var unicodeM = Regex.Match(block, @"unicode-range:\s*([^;]+);?");
 
                         if (familyM.Success && urlM.Success)
                         {
@@ -14536,6 +14537,7 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                             string style = styleM.Success ? styleM.Groups[1].Value : "normal";
                             string weight = weightM.Success ? weightM.Groups[1].Value : "400";
                             string downloadUrl = urlM.Groups[1].Value;
+                            string unicodeRange = unicodeM.Success ? unicodeM.Groups[1].Value.Trim() : "";
 
                             string fileName = Path.GetFileName(downloadUrl);
                             if (fileName.Contains("?")) fileName = fileName.Split('?')[0];
@@ -14552,6 +14554,10 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                             sb.AppendLine(string.Format("  font-weight: {0};", weight));
                             sb.AppendLine("  font-display: swap;");
                             sb.AppendLine(string.Format("  src: url('../fonts/{0}/{1}') format('woff2');", cleanFolderName, fileName));
+                            if (!string.IsNullOrEmpty(unicodeRange))
+                            {
+                                sb.AppendLine(string.Format("  unicode-range: {0};", unicodeRange));
+                            }
                             sb.AppendLine("}");
                         }
                     }
