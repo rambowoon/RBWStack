@@ -14462,13 +14462,11 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
                     if (dr == DialogResult.No) return;
                 }
 
-                // Nếu có URL cũ (thiếu variants) của cùng font, xóa dòng đó trước
-                string simplePattern = "@import url(" + "https://fonts.googleapis.com/css2?family=" + info.Family.Replace(" ", "+") + "&display=swap)";
-                string simplePat2 = "@import url('" + "https://fonts.googleapis.com/css2?family=" + info.Family.Replace(" ", "+") + "&display=swap')";
-                var cssLines = new List<string>(existing.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None));
-                cssLines.RemoveAll(l => l.IndexOf(simplePattern, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                        l.IndexOf(simplePat2, StringComparison.OrdinalIgnoreCase) >= 0);
-                existing = string.Join("\n", cssLines).TrimEnd() + (cssLines.Count > 0 ? "\n" : "");
+                // Nếu có bất kỳ URL @import cũ nào của cùng font này, xóa bỏ dòng đó bằng Regex trước khi thêm
+                string cleanFamilyPattern = info.Family.Replace(" ", @"\+");
+                string regexPattern = "@import\\s+url\\(['\"']?https://fonts\\.googleapis\\.com/css2\\?family=" + cleanFamilyPattern + "(?::[^'\"\\s]+)?['\"']?\\);?";
+                existing = Regex.Replace(existing, regexPattern, "", RegexOptions.IgnoreCase);
+                existing = existing.TrimEnd() + (string.IsNullOrEmpty(existing) ? "" : "\n");
                 File.WriteAllText(fontsCssPath, existing);
 
                 string prefix = (string.IsNullOrEmpty(existing) || existing.EndsWith("\n")) ? "" : "\n";
