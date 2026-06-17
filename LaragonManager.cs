@@ -5636,6 +5636,36 @@ $cfg['SendErrorReports']              = 'never';
                         content += "\r\nsession.save_path = \"" + sessionPathFwd + "\"\r\n";
                         modified = true;
                     }
+
+                    if (Regex.IsMatch(content, @"session\.gc_maxlifetime\s*=", RegexOptions.IgnoreCase))
+                    {
+                        string oldGc = Regex.Match(content, @"(?m)^;?\s*session\.gc_maxlifetime\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
+                        if (oldGc != "2592000")
+                        {
+                            content = Regex.Replace(content, @"(?m)^;?\s*session\.gc_maxlifetime\s*=.*$", "session.gc_maxlifetime = 2592000", RegexOptions.IgnoreCase);
+                            modified = true;
+                        }
+                    }
+                    else
+                    {
+                        content += "\r\nsession.gc_maxlifetime = 2592000\r\n";
+                        modified = true;
+                    }
+
+                    if (Regex.IsMatch(content, @"session\.cookie_lifetime\s*=", RegexOptions.IgnoreCase))
+                    {
+                        string oldCookie = Regex.Match(content, @"(?m)^;?\s*session\.cookie_lifetime\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
+                        if (oldCookie != "2592000")
+                        {
+                            content = Regex.Replace(content, @"(?m)^;?\s*session\.cookie_lifetime\s*=.*$", "session.cookie_lifetime = 2592000", RegexOptions.IgnoreCase);
+                            modified = true;
+                        }
+                    }
+                    else
+                    {
+                        content += "\r\nsession.cookie_lifetime = 2592000\r\n";
+                        modified = true;
+                    }
                 }
 
                 // Enforce SMTP redirection to Mail Sandbox
