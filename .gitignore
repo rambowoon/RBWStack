@@ -10,3 +10,5 @@
 !app.ico
 !.gitignore
 !data/bridge.php
+!ssl/
+!ssl/cacert.pem

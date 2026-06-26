@@ -5760,6 +5760,20 @@ $cfg['SendErrorReports']              = 'never';
                         sslChanged = true;
                     }
                 }
+                else
+                {
+                    // Clean up/comment out if file is missing to prevent cURL error 77
+                    if (Regex.IsMatch(content, @"(?m)^\s*curl\.cainfo\s*=", RegexOptions.IgnoreCase))
+                    {
+                        content = Regex.Replace(content, @"(?m)^\s*curl\.cainfo\s*=.*$", ";curl.cainfo =", RegexOptions.IgnoreCase);
+                        sslChanged = true;
+                    }
+                    if (Regex.IsMatch(content, @"(?m)^\s*openssl\.cafile\s*=", RegexOptions.IgnoreCase))
+                    {
+                        content = Regex.Replace(content, @"(?m)^\s*openssl\.cafile\s*=.*$", ";openssl.cafile =", RegexOptions.IgnoreCase);
+                        sslChanged = true;
+                    }
+                }
 
                 if (modified || smtpChanged || sslChanged)
                 {
