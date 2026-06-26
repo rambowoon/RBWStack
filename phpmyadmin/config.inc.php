@@ -56,6 +56,7 @@ $cfg['ForceSSL'] = false;
 ini_set('session.cookie_secure', '0');
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.cookie_lifetime', '2592000'); // Lưu session cookie 30 ngày để tránh mất đăng nhập khi khởi động lại máy/đóng trình duyệt
 ini_set('session.gc_maxlifetime', '2592000'); // 30 ngày = khớp với LoginCookieStore/Validity
 
 /**

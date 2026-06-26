@@ -2643,6 +2643,7 @@ $cfg['ForceSSL'] = false;
 ini_set('session.cookie_secure', '0');
 ini_set('session.cookie_httponly', '1');
 ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.cookie_lifetime', '2592000'); // Lưu session cookie 30 ngày để tránh mất đăng nhập khi khởi động lại máy/đóng trình duyệt
 ini_set('session.gc_maxlifetime', '2592000'); // 30 ngày = khớp với LoginCookieStore/Validity
 
 /**
@@ -2886,6 +2887,14 @@ $cfg['SendErrorReports']              = 'never';
         private CheckBox chkMinimizeToTray;
         private CheckBox chkAutoOptimizePhpIni;
         private CheckBox chkAdminVHostMode;
+        private CheckBox chkColorPickerEnabled;
+        private TextBox txtColorPickerHotkey;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool RegisterHotKey(IntPtr hWnd, int id, int fsModifiers, int vk);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
 
         [DllImport("user32.dll")]
         public static extern bool ReleaseCapture();
@@ -2962,6 +2971,7 @@ $cfg['SendErrorReports']              = 'never';
                 }
                 StopAllTunnels();
                 StopAllNodeProcesses();
+                UnregisterColorPickerHotkey();
                 if (trayIcon != null)
                 {
                     trayIcon.Visible = false;
@@ -3841,7 +3851,7 @@ $cfg['SendErrorReports']              = 'never';
 
             // Card 1: Cấu hình Hệ thống (System Configuration)
             Panel pnlSysBox = new Panel();
-            pnlSysBox.Size = new Size(345, 415);
+            pnlSysBox.Size = new Size(345, 480);
             pnlSysBox.Location = new Point(20, 20);
             pnlSysBox.BackColor = Color.Transparent;
             pnlTabSettings.Controls.Add(pnlSysBox);
@@ -3876,7 +3886,7 @@ $cfg['SendErrorReports']              = 'never';
 
             // Card 2: Cấu hình Demo Hosting
             Panel pnlDemoBox = new Panel();
-            pnlDemoBox.Size = new Size(345, 415);
+            pnlDemoBox.Size = new Size(345, 480);
             pnlDemoBox.Location = new Point(385, 20);
             pnlDemoBox.BackColor = Color.Transparent;
             pnlTabSettings.Controls.Add(pnlDemoBox);
@@ -4073,6 +4083,22 @@ $cfg['SendErrorReports']              = 'never';
             txtPhpPort.ReadOnly = true;
             addCustomField(pnlSysBox, "Cổng Port PHP-CGI (Chỉ đọc)", txtPhpPort, "", 20, 304, 305, 30, null);
 
+            chkColorPickerEnabled = new CheckBox();
+            chkColorPickerEnabled.Text = "Bật phím tắt copy màu màn hình";
+            chkColorPickerEnabled.ForeColor = Color.FromArgb(55, 65, 81);
+            chkColorPickerEnabled.Font = new Font("Segoe UI", 9f);
+            chkColorPickerEnabled.Location = new Point(20, 356);
+            chkColorPickerEnabled.Size = new Size(305, 22);
+            chkColorPickerEnabled.Checked = LoadColorPickerEnabledSetting();
+            chkColorPickerEnabled.FlatStyle = FlatStyle.Flat;
+            chkColorPickerEnabled.FlatAppearance.BorderSize = 1;
+            chkColorPickerEnabled.FlatAppearance.BorderColor = dfNormalBorder;
+            pnlSysBox.Controls.Add(chkColorPickerEnabled);
+
+            txtColorPickerHotkey = new TextBox();
+            addCustomField(pnlSysBox, "Phím tắt copy màu (Mặc định: Ctrl+Alt+C)", txtColorPickerHotkey, "", 20, 380, 305, 30, null);
+            txtColorPickerHotkey.Text = LoadColorPickerHotkeySetting();
+
             btnSaveSettings = new ModernButton();
             btnSaveSettings.Text = "Lưu cài đặt hệ thống";
             btnSaveSettings.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
@@ -4082,7 +4108,7 @@ $cfg['SendErrorReports']              = 'never';
             btnSaveSettings.BorderColor = Color.Transparent;
             btnSaveSettings.ForeColor = Color.White;
             btnSaveSettings.CornerRadius = 6;
-            btnSaveSettings.Location = new Point(20, 362);
+            btnSaveSettings.Location = new Point(20, 434);
             btnSaveSettings.Size = new Size(305, 36);
             btnSaveSettings.Click += (s, e) => {
                 SaveSettings_Click(null, null);
@@ -5035,6 +5061,15 @@ $cfg['SendErrorReports']              = 'never';
                 c["vhost_mode"] = chkAdminVHostMode.Checked ? "admin" : "normal";
                 DeployDemoForm.SaveGlobalConfig(c);
             }
+            if (chkColorPickerEnabled != null)
+            {
+                SaveColorPickerEnabledSetting(chkColorPickerEnabled.Checked);
+            }
+            if (txtColorPickerHotkey != null)
+            {
+                SaveColorPickerHotkeySetting(txtColorPickerHotkey.Text.Trim());
+            }
+            RegisterColorPickerHotkey();
 
             if (pnlSettingsOverlay != null)
             {
@@ -6665,6 +6700,64 @@ $cfg['SendErrorReports']              = 'never';
             }
             catch { }
             return true; // Default to true!
+        }
+
+        private string LoadColorPickerHotkeySetting()
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RegPath))
+                {
+                    if (key != null)
+                    {
+                        object val = key.GetValue("ColorPickerHotkey");
+                        if (val != null) return val.ToString();
+                    }
+                }
+            }
+            catch { }
+            return "Ctrl+Alt+C";
+        }
+
+        private void SaveColorPickerHotkeySetting(string hotkey)
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RegPath))
+                {
+                    if (key != null) key.SetValue("ColorPickerHotkey", hotkey);
+                }
+            }
+            catch { }
+        }
+
+        private bool LoadColorPickerEnabledSetting()
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RegPath))
+                {
+                    if (key != null)
+                    {
+                        object val = key.GetValue("ColorPickerEnabled");
+                        if (val != null) return (int)val == 1;
+                    }
+                }
+            }
+            catch { }
+            return true; // default to true
+        }
+
+        private void SaveColorPickerEnabledSetting(bool enable)
+        {
+            try
+            {
+                using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RegPath))
+                {
+                    if (key != null) key.SetValue("ColorPickerEnabled", enable ? 1 : 0, Microsoft.Win32.RegistryValueKind.DWord);
+                }
+            }
+            catch { }
         }
 
         private void SaveMinimizeToTraySetting(bool enable)
@@ -10169,8 +10262,25 @@ $cfg['SendErrorReports']              = 'never';
             pnlSitesContainer.Invalidate();
         }
 
+        protected override void OnHandleCreated(EventArgs e)
+        {
+            base.OnHandleCreated(e);
+            RegisterColorPickerHotkey();
+        }
+
+        protected override void OnHandleDestroyed(EventArgs e)
+        {
+            UnregisterColorPickerHotkey();
+            base.OnHandleDestroyed(e);
+        }
+
         protected override void WndProc(ref Message m)
         {
+            const int WM_HOTKEY = 0x0312;
+            if (m.Msg == WM_HOTKEY && m.WParam.ToInt32() == COLOR_PICKER_HOTKEY_ID)
+            {
+                CopyColorUnderMouse();
+            }
             if (restoreMessage != 0 && m.Msg == restoreMessage)
             {
                 ShowMainForm();
@@ -11184,6 +11294,110 @@ $cfg['SendErrorReports']              = 'never';
             }
             catch { }
             return null;
+        }
+
+        private const int COLOR_PICKER_HOTKEY_ID = 9999;
+
+        private void CopyColorUnderMouse()
+        {
+            try
+            {
+                Point cursor = Cursor.Position;
+                Color color = GetColorAt(cursor);
+                string hexColor = string.Format("{0:X2}{1:X2}{2:X2}", color.R, color.G, color.B);
+                Clipboard.SetText(hexColor);
+            }
+            catch { }
+        }
+
+        private Color GetColorAt(Point point)
+        {
+            try
+            {
+                using (var bmp = new Bitmap(1, 1))
+                {
+                    using (var g = Graphics.FromImage(bmp))
+                    {
+                        g.CopyFromScreen(point, new Point(0, 0), new Size(1, 1));
+                    }
+                    return bmp.GetPixel(0, 0);
+                }
+            }
+            catch
+            {
+                return Color.Black;
+            }
+        }
+
+        private bool ParseHotkey(string hotkeyStr, out int modifiers, out int vk)
+        {
+            modifiers = 0;
+            vk = 0;
+            if (string.IsNullOrEmpty(hotkeyStr)) return false;
+
+            string[] parts = hotkeyStr.Split('+');
+            foreach (var part in parts)
+            {
+                string p = part.Trim().ToUpper();
+                if (p == "CTRL" || p == "CONTROL")
+                {
+                    modifiers |= 0x0002;
+                }
+                else if (p == "ALT")
+                {
+                    modifiers |= 0x0001;
+                }
+                else if (p == "SHIFT")
+                {
+                    modifiers |= 0x0004;
+                }
+                else if (p == "WIN" || p == "WINDOWS")
+                {
+                    modifiers |= 0x0008;
+                }
+                else
+                {
+                    if (p.Length == 1)
+                    {
+                        vk = (int)p[0];
+                    }
+                    else
+                    {
+                        Keys k;
+                        if (Enum.TryParse<Keys>(p, true, out k))
+                        {
+                            vk = (int)k;
+                        }
+                    }
+                }
+            }
+            return vk != 0;
+        }
+
+        private void RegisterColorPickerHotkey()
+        {
+            UnregisterColorPickerHotkey();
+            if (!LoadColorPickerEnabledSetting()) return;
+
+            string hotkeyStr = LoadColorPickerHotkeySetting();
+            int modifiers, vk;
+            if (ParseHotkey(hotkeyStr, out modifiers, out vk))
+            {
+                try
+                {
+                    RegisterHotKey(this.Handle, COLOR_PICKER_HOTKEY_ID, modifiers, vk);
+                }
+                catch { }
+            }
+        }
+
+        private void UnregisterColorPickerHotkey()
+        {
+            try
+            {
+                UnregisterHotKey(this.Handle, COLOR_PICKER_HOTKEY_ID);
+            }
+            catch { }
         }
     }
 
@@ -13217,7 +13431,7 @@ $cfg['SendErrorReports']              = 'never';
         private string PostHttp(string url, string postData)
         {
             try {
-                using (var wc = new System.Net.WebClient())
+                using (var wc = new TimeoutWebClient(600000)) // 10-minute timeout (600000 ms)
                 {
                     wc.Headers[System.Net.HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
                     ServicePointManager.SecurityProtocol = (SecurityProtocolType)3072 | SecurityProtocolType.Tls12;
@@ -13230,7 +13444,7 @@ $cfg['SendErrorReports']              = 'never';
         private string PostHttpWithAuth(string url, string postData, string authUser, string authPass)
         {
             try {
-                using (var wc = new System.Net.WebClient())
+                using (var wc = new TimeoutWebClient(600000)) // 10-minute timeout (600000 ms)
                 {
                     wc.Headers[System.Net.HttpRequestHeader.ContentType] = "application/x-www-form-urlencoded";
                     string credentials = Convert.ToBase64String(System.Text.Encoding.ASCII.GetBytes(authUser + ":" + authPass));
@@ -15271,5 +15485,25 @@ Nunito|SANS_SERIF|200,200i,300,300i,400,regular,600,600i,700,700i,800,800i,900,9
         public string Body { get; set; }
         public string Date { get; set; }
         public bool IsHtml { get; set; }
+    }
+
+    public class TimeoutWebClient : WebClient
+    {
+        public int TimeoutMs { get; set; }
+
+        public TimeoutWebClient(int timeoutMs = 600000)
+        {
+            this.TimeoutMs = timeoutMs;
+        }
+
+        protected override WebRequest GetWebRequest(Uri address)
+        {
+            WebRequest request = base.GetWebRequest(address);
+            if (request != null)
+            {
+                request.Timeout = this.TimeoutMs;
+            }
+            return request;
+        }
     }
 }
