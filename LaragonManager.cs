@@ -5722,21 +5722,21 @@ $cfg['SendErrorReports']              = 'never';
 
                 if (File.Exists(cacertPath))
                 {
-                    string cacertPathFwd = cacertPath.Replace("\\", "/");
+                    string cacertPathWin = cacertPath.Replace("/", "\\");
                     
                     // Configure curl.cainfo
                     if (Regex.IsMatch(content, @"curl\.cainfo\s*=", RegexOptions.IgnoreCase))
                     {
                         string oldCainfo = Regex.Match(content, @"(?m)^;?\s*curl\.cainfo\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
-                        if (oldCainfo != cacertPathFwd)
+                        if (oldCainfo != cacertPathWin)
                         {
-                            content = Regex.Replace(content, @"(?m)^;?\s*curl\.cainfo\s*=.*$", "curl.cainfo = \"" + cacertPathFwd + "\"", RegexOptions.IgnoreCase);
+                            content = Regex.Replace(content, @"(?m)^;?\s*curl\.cainfo\s*=.*$", "curl.cainfo = " + cacertPathWin, RegexOptions.IgnoreCase);
                             sslChanged = true;
                         }
                     }
                     else
                     {
-                        content += "\r\ncurl.cainfo = \"" + cacertPathFwd + "\"\r\n";
+                        content += "\r\ncurl.cainfo = " + cacertPathWin + "\r\n";
                         sslChanged = true;
                     }
 
@@ -5744,15 +5744,15 @@ $cfg['SendErrorReports']              = 'never';
                     if (Regex.IsMatch(content, @"openssl\.cafile\s*=", RegexOptions.IgnoreCase))
                     {
                         string oldCafile = Regex.Match(content, @"(?m)^;?\s*openssl\.cafile\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
-                        if (oldCafile != cacertPathFwd)
+                        if (oldCafile != cacertPathWin)
                         {
-                            content = Regex.Replace(content, @"(?m)^;?\s*openssl\.cafile\s*=.*$", "openssl.cafile = \"" + cacertPathFwd + "\"", RegexOptions.IgnoreCase);
+                            content = Regex.Replace(content, @"(?m)^;?\s*openssl\.cafile\s*=.*$", "openssl.cafile = " + cacertPathWin, RegexOptions.IgnoreCase);
                             sslChanged = true;
                         }
                     }
                     else
                     {
-                        content += "\r\nopenssl.cafile = \"" + cacertPathFwd + "\"\r\n";
+                        content += "\r\nopenssl.cafile = " + cacertPathWin + "\r\n";
                         sslChanged = true;
                     }
                 }
