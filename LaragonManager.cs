@@ -3089,7 +3089,7 @@ $cfg['SendErrorReports']              = 'never';
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.2", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.3", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -4406,13 +4406,13 @@ $cfg['SendErrorReports']              = 'never';
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.2", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.2.3", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.2.2).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.2.3).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -4448,7 +4448,7 @@ $cfg['SendErrorReports']              = 'never';
             Label lblProDesc = new Label();
             lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.2.2 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v2.2.3 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -5700,7 +5700,64 @@ $cfg['SendErrorReports']              = 'never';
                     smtpChanged = true;
                 }
 
-                if (modified || smtpChanged)
+                // Enforce SSL Certification Configuration (cacert.pem) for portability & to prevent cURL error 60
+                bool sslChanged = false;
+                string sslDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ssl");
+                string cacertPath = Path.Combine(sslDir, "cacert.pem");
+                
+                // Tự động tải cacert.pem mới nhất từ curl.se nếu chưa tồn tại
+                if (!File.Exists(cacertPath))
+                {
+                    try
+                    {
+                        if (!Directory.Exists(sslDir)) Directory.CreateDirectory(sslDir);
+                        using (var client = new WebClient())
+                        {
+                            client.Headers.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                            client.DownloadFile("https://curl.se/ca/cacert.pem", cacertPath);
+                        }
+                    }
+                    catch { }
+                }
+
+                if (File.Exists(cacertPath))
+                {
+                    string cacertPathFwd = cacertPath.Replace("\\", "/");
+                    
+                    // Configure curl.cainfo
+                    if (Regex.IsMatch(content, @"curl\.cainfo\s*=", RegexOptions.IgnoreCase))
+                    {
+                        string oldCainfo = Regex.Match(content, @"(?m)^;?\s*curl\.cainfo\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
+                        if (oldCainfo != cacertPathFwd)
+                        {
+                            content = Regex.Replace(content, @"(?m)^;?\s*curl\.cainfo\s*=.*$", "curl.cainfo = \"" + cacertPathFwd + "\"", RegexOptions.IgnoreCase);
+                            sslChanged = true;
+                        }
+                    }
+                    else
+                    {
+                        content += "\r\ncurl.cainfo = \"" + cacertPathFwd + "\"\r\n";
+                        sslChanged = true;
+                    }
+
+                    // Configure openssl.cafile
+                    if (Regex.IsMatch(content, @"openssl\.cafile\s*=", RegexOptions.IgnoreCase))
+                    {
+                        string oldCafile = Regex.Match(content, @"(?m)^;?\s*openssl\.cafile\s*=\s*(.*)$", RegexOptions.IgnoreCase).Groups[1].Value.Trim(' ', '"', '\r');
+                        if (oldCafile != cacertPathFwd)
+                        {
+                            content = Regex.Replace(content, @"(?m)^;?\s*openssl\.cafile\s*=.*$", "openssl.cafile = \"" + cacertPathFwd + "\"", RegexOptions.IgnoreCase);
+                            sslChanged = true;
+                        }
+                    }
+                    else
+                    {
+                        content += "\r\nopenssl.cafile = \"" + cacertPathFwd + "\"\r\n";
+                        sslChanged = true;
+                    }
+                }
+
+                if (modified || smtpChanged || sslChanged)
                 {
                     File.WriteAllText(phpConfPath, content);
                 }
@@ -8708,7 +8765,7 @@ $cfg['SendErrorReports']              = 'never';
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.2.2  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.2.3  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
