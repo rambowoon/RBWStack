@@ -5705,19 +5705,23 @@ $cfg['SendErrorReports']              = 'never';
                 string sslDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ssl");
                 string cacertPath = Path.Combine(sslDir, "cacert.pem");
                 
-                // Tự động tải cacert.pem mới nhất từ curl.se nếu chưa tồn tại
+                // Tự động tải cacert.pem mới nhất từ curl.se bất đồng bộ nếu chưa tồn tại (tránh treo UI)
                 if (!File.Exists(cacertPath))
                 {
-                    try
+                    System.Threading.Tasks.Task.Run(() =>
                     {
-                        if (!Directory.Exists(sslDir)) Directory.CreateDirectory(sslDir);
-                        using (var client = new WebClient())
+                        try
                         {
-                            client.Headers.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
-                            client.DownloadFile("https://curl.se/ca/cacert.pem", cacertPath);
+                            if (!Directory.Exists(sslDir)) Directory.CreateDirectory(sslDir);
+                            using (var client = new WebClient())
+                            {
+                                client.Headers.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                                client.DownloadFile("https://curl.se/ca/cacert.pem", cacertPath);
+                            }
+                            ConfigurePHPIni(phpConfPath);
                         }
-                    }
-                    catch { }
+                        catch { }
+                    });
                 }
 
                 if (File.Exists(cacertPath))
