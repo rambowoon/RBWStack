@@ -5201,6 +5201,10 @@ $cfg['SendErrorReports']              = 'never';
                 return;
             }
 
+            // Tắt các tiến trình web server cũ đang chạy ngầm để tránh xung đột cổng khi đổi thư mục hoặc chạy lại
+            KillProcessesByName("httpd");
+            KillProcessesByName("nginx");
+
             // Tự động làm mới cấu hình với đường dẫn hiện tại của ứng dụng và port trên giao diện
             try
             {
@@ -5251,8 +5255,10 @@ $cfg['SendErrorReports']              = 'never';
                     if (procWebServer.HasExited && procWebServer.ExitCode != 0)
                     {
                         MessageBox.Show("Web Server đã dừng đột ngột ngay sau khi khởi động (Exit Code: " + procWebServer.ExitCode + ").\r\n\r\n" +
-                                        "LƯU Ý: Đây thường là do thiếu thư viện nền Microsoft Visual C++ Runtime (x64) trên máy tính của bạn.\r\n" +
-                                        "Vui lòng nhấn nút 'KHO TẢI PHẦN MỀM' và tải cài đặt 'Microsoft Visual C++ Runtime' để khắc phục!", 
+                                        "LƯU Ý: Lỗi này thường xảy ra do một trong hai nguyên nhân sau:\r\n" +
+                                        "1. Cổng Port (80 / 443) bị chiếm bởi ứng dụng khác (Laragon, XAMPP, IIS, Skype, hoặc tiến trình cũ chạy ẩn).\r\n" +
+                                        "2. Máy tính của bạn thiếu hoặc bị lỗi thư viện nền Microsoft Visual C++ Runtime (x64).\r\n\r\n" +
+                                        "Vui lòng kiểm tra xung đột cổng hoặc nhấn nút 'KHO TẢI PHẦN MỀM' để cài đặt/cập nhật 'Microsoft Visual C++ Runtime'.", 
                                         "Cảnh báo khởi động", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
@@ -5340,6 +5346,9 @@ $cfg['SendErrorReports']              = 'never';
                 return;
             }
 
+            // Tắt các tiến trình MySQL cũ đang chạy ngầm để tránh xung đột cổng khi đổi thư mục
+            KillProcessesByName("mysqld");
+
             // Tự động làm mới cấu hình với đường dẫn hiện tại và port trên giao diện
             try
             {
@@ -5374,8 +5383,10 @@ $cfg['SendErrorReports']              = 'never';
                     if (procMySQL.HasExited && procMySQL.ExitCode != 0)
                     {
                         MessageBox.Show("MySQL CSDL đã dừng đột ngột ngay sau khi khởi động (Exit Code: " + procMySQL.ExitCode + ").\r\n\r\n" +
-                                        "LƯU Ý: Vui lòng kiểm tra xem cổng Port (mặc định: 3306) có bị trùng với ứng dụng khác (Laragon, XAMPP, MySQL Server) đang chạy hay không.\r\n" +
-                                        "Ngoài ra, hãy đảm bảo thư viện nền VC++ Runtime đã được cài đặt.", 
+                                        "LƯU Ý: Lỗi này thường xảy ra do một trong các nguyên nhân sau:\r\n" +
+                                        "1. Cổng Port (mặc định: 3306) bị chiếm dụng bởi ứng dụng khác (MySQL Server khác, Laragon, XAMPP đang chạy ngầm).\r\n" +
+                                        "2. Thiếu hoặc lỗi thư viện nền Microsoft Visual C++ Runtime (x64).\r\n" +
+                                        "3. Thư mục dữ liệu (data) bị lỗi phân quyền hoặc cấu trúc.", 
                                         "Cảnh báo khởi động", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     }
                 }
