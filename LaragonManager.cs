@@ -1782,20 +1782,20 @@ namespace RBWStack
 
                 if (Regex.IsMatch(content, @"max_execution_time\s*=", RegexOptions.IgnoreCase))
                 {
-                    content = Regex.Replace(content, @"(?m)^;?\s*max_execution_time\s*=.*$", "max_execution_time = 3600", RegexOptions.IgnoreCase);
+                    content = Regex.Replace(content, @"(?m)^;?\s*max_execution_time\s*=.*$", "max_execution_time = 0", RegexOptions.IgnoreCase);
                 }
                 else
                 {
-                    content += "\r\nmax_execution_time = 3600\r\n";
+                    content += "\r\nmax_execution_time = 0\r\n";
                 }
 
                 if (Regex.IsMatch(content, @"max_input_time\s*=", RegexOptions.IgnoreCase))
                 {
-                    content = Regex.Replace(content, @"(?m)^;?\s*max_input_time\s*=.*$", "max_input_time = 3600", RegexOptions.IgnoreCase);
+                    content = Regex.Replace(content, @"(?m)^;?\s*max_input_time\s*=.*$", "max_input_time = -1", RegexOptions.IgnoreCase);
                 }
                 else
                 {
-                    content += "\r\nmax_input_time = 3600\r\n";
+                    content += "\r\nmax_input_time = -1\r\n";
                 }
 
                 // Fix upload_tmp_dir & sys_temp_dir → avoid system temp directory dependency
@@ -1987,15 +1987,12 @@ namespace RBWStack
             sb.AppendLine("        Options Indexes FollowSymLinks");
             sb.AppendLine("        AllowOverride All");
             sb.AppendLine("        Require all granted");
-            if (rootPhpVer != "Mặc định (Default)")
-            {
-                int phpPort = rootPhpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)
-                    ? 9000
-                    : MainForm.GetPhpPortForVersion(rootPhpVer);
-                sb.AppendLine("        <FilesMatch \\.php$>");
-                sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", phpPort));
-                sb.AppendLine("        </FilesMatch>");
-            }
+            int rootPhpPort = (rootPhpVer == "Mặc định (Default)" || rootPhpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase))
+                ? 9000
+                : MainForm.GetPhpPortForVersion(rootPhpVer);
+            sb.AppendLine("        <FilesMatch \\.php$>");
+            sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", rootPhpPort));
+            sb.AppendLine("        </FilesMatch>");
             sb.AppendLine("    </Directory>");
             sb.AppendLine("</VirtualHost>");
             sb.AppendLine("");
@@ -2034,16 +2031,12 @@ namespace RBWStack
                             sb.AppendLine("        AllowOverride All");
                             sb.AppendLine("        Require all granted");
                             
-                            if (phpVer != "Mặc định (Default)")
-                            {
-                                int phpPort = phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)
-                                    ? 9000
-                                    : MainForm.GetPhpPortForVersion(phpVer);
-                                sb.AppendLine("        <FilesMatch \\.php$>");
-                                sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", phpPort));
-                                sb.AppendLine("        </FilesMatch>");
-                            }
-                            
+                            int tunnelPhpPort = (phpVer == "Mặc định (Default)" || phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase))
+                                ? 9000
+                                : MainForm.GetPhpPortForVersion(phpVer);
+                            sb.AppendLine("        <FilesMatch \\.php$>");
+                            sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", tunnelPhpPort));
+                            sb.AppendLine("        </FilesMatch>");
                             sb.AppendLine("    </Directory>");
                             sb.AppendLine("</VirtualHost>");
                             sb.AppendLine("");
@@ -2104,16 +2097,12 @@ namespace RBWStack
                             sb.AppendLine("        AllowOverride All");
                             sb.AppendLine("        Require all granted");
                             
-                            if (phpVer != "Mặc định (Default)")
-                            {
-                                int phpPort = phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)
-                                    ? 9000
-                                    : MainForm.GetPhpPortForVersion(phpVer);
-                                sb.AppendLine("        <FilesMatch \\.php$>");
-                                sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", phpPort));
-                                sb.AppendLine("        </FilesMatch>");
-                            }
-                            
+                            int sitePhpPort = (phpVer == "Mặc định (Default)" || phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase))
+                                ? 9000
+                                : MainForm.GetPhpPortForVersion(phpVer);
+                            sb.AppendLine("        <FilesMatch \\.php$>");
+                            sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", sitePhpPort));
+                            sb.AppendLine("        </FilesMatch>");
                             sb.AppendLine("    </Directory>");
                             sb.AppendLine("</VirtualHost>");
                             sb.AppendLine("");
@@ -2136,16 +2125,12 @@ namespace RBWStack
                                 sb.AppendLine("        AllowOverride All");
                                 sb.AppendLine("        Require all granted");
                                 
-                                if (phpVer != "Mặc định (Default)")
-                                {
-                                    int phpPort = phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)
-                                        ? 9000
-                                        : MainForm.GetPhpPortForVersion(phpVer);
-                                    sb.AppendLine("        <FilesMatch \\.php$>");
-                                    sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", phpPort));
-                                    sb.AppendLine("        </FilesMatch>");
-                                }
-                                
+                                int sslPhpPort = (phpVer == "Mặc định (Default)" || phpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase))
+                                    ? 9000
+                                    : MainForm.GetPhpPortForVersion(phpVer);
+                                sb.AppendLine("        <FilesMatch \\.php$>");
+                                sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", sslPhpPort));
+                                sb.AppendLine("        </FilesMatch>");
                                 sb.AppendLine("    </Directory>");
                                 sb.AppendLine("</VirtualHost>");
                                 sb.AppendLine("");
@@ -2169,15 +2154,9 @@ namespace RBWStack
             sb.AppendLine("    SSLEngine on");
             sb.AppendLine("    SSLCertificateFile \"" + sslCrt + "\"");
             sb.AppendLine("    SSLCertificateKeyFile \"" + sslKey + "\"");
-            if (rootPhpVer != "Mặc định (Default)")
-            {
-                int phpPort = rootPhpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)
-                    ? 9000
-                    : MainForm.GetPhpPortForVersion(rootPhpVer);
-                sb.AppendLine("    <FilesMatch \\.php$>");
-                sb.AppendLine(string.Format("        SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", phpPort));
-                sb.AppendLine("    </FilesMatch>");
-            }
+            sb.AppendLine("    <FilesMatch \\.php$>");
+            sb.AppendLine(string.Format("        SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", rootPhpPort));
+            sb.AppendLine("    </FilesMatch>");
             sb.AppendLine("</VirtualHost>");
             sb.AppendLine("");
 
@@ -2433,6 +2412,11 @@ http {
     keepalive_timeout  3600;
     fastcgi_read_timeout 3600s;
     fastcgi_send_timeout 3600s;
+    fastcgi_connect_timeout 3600s;
+    fastcgi_buffer_size 128k;
+    fastcgi_buffers 4 256k;
+    fastcgi_busy_buffers_size 256k;
+    fastcgi_temp_file_write_size 256k;
     proxy_read_timeout 3600s;
     proxy_send_timeout 3600s;
     
@@ -2603,7 +2587,9 @@ $cfg['blowfish_secret'] = 'RBWStack@LocalDev#2024!SecureK32';
 $i = 0;
 $i++;
 
-$cfg['Servers'][$i]['auth_type']     = 'cookie';
+$cfg['Servers'][$i]['auth_type']     = 'config';
+$cfg['Servers'][$i]['user']          = 'root';
+$cfg['Servers'][$i]['password']      = '';
 $cfg['Servers'][$i]['host']          = '127.0.0.1';
 $cfg['Servers'][$i]['port']          = '" + mysqlPort + @"';
 $cfg['Servers'][$i]['compress']      = false;
@@ -5577,20 +5563,20 @@ $cfg['SendErrorReports']              = 'never';
 
                     if (Regex.IsMatch(content, @"max_execution_time\s*=", RegexOptions.IgnoreCase))
                     {
-                        content = Regex.Replace(content, @"(?m)^;?\s*max_execution_time\s*=.*$", "max_execution_time = 3600", RegexOptions.IgnoreCase);
+                        content = Regex.Replace(content, @"(?m)^;?\s*max_execution_time\s*=.*$", "max_execution_time = 0", RegexOptions.IgnoreCase);
                     }
                     else
                     {
-                        content += "\r\nmax_execution_time = 3600\r\n";
+                        content += "\r\nmax_execution_time = 0\r\n";
                     }
 
                     if (Regex.IsMatch(content, @"max_input_time\s*=", RegexOptions.IgnoreCase))
                     {
-                        content = Regex.Replace(content, @"(?m)^;?\s*max_input_time\s*=.*$", "max_input_time = 3600", RegexOptions.IgnoreCase);
+                        content = Regex.Replace(content, @"(?m)^;?\s*max_input_time\s*=.*$", "max_input_time = -1", RegexOptions.IgnoreCase);
                     }
                     else
                     {
-                        content += "\r\nmax_input_time = 3600\r\n";
+                        content += "\r\nmax_input_time = -1\r\n";
                     }
 
                     if (Regex.IsMatch(content, @"session\.gc_maxlifetime\s*=", RegexOptions.IgnoreCase))
@@ -5870,6 +5856,8 @@ $cfg['SendErrorReports']              = 'never';
                 psi.CreateNoWindow = true;
                 psi.UseShellExecute = false;
                 psi.WindowStyle = ProcessWindowStyle.Hidden;
+                psi.EnvironmentVariables["PHP_FCGI_CHILDREN"] = "16";
+                psi.EnvironmentVariables["PHP_FCGI_MAX_REQUESTS"] = "0";
 
                 procPHP = Process.Start(psi);
                 if (procPHP != null) procPHPList.Add(procPHP);
@@ -5904,6 +5892,8 @@ $cfg['SendErrorReports']              = 'never';
                         psiCustom.CreateNoWindow = true;
                         psiCustom.UseShellExecute = false;
                         psiCustom.WindowStyle = ProcessWindowStyle.Hidden;
+                        psiCustom.EnvironmentVariables["PHP_FCGI_CHILDREN"] = "16";
+                        psiCustom.EnvironmentVariables["PHP_FCGI_MAX_REQUESTS"] = "0";
 
                         Process customProc = Process.Start(psiCustom);
                         if (customProc != null)

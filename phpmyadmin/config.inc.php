@@ -16,7 +16,9 @@ $cfg['blowfish_secret'] = 'RBWStack@LocalDev#2024!SecureK32';
 $i = 0;
 $i++;
 
-$cfg['Servers'][$i]['auth_type']     = 'cookie';
+$cfg['Servers'][$i]['auth_type']     = 'config';
+$cfg['Servers'][$i]['user']          = 'root';
+$cfg['Servers'][$i]['password']      = '';
 $cfg['Servers'][$i]['host']          = '127.0.0.1';
 $cfg['Servers'][$i]['port']          = '3306';
 $cfg['Servers'][$i]['compress']      = false;
