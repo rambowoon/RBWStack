@@ -2639,6 +2639,9 @@ ini_set('session.cookie_samesite', 'Lax');
 ini_set('session.cookie_lifetime', '2592000'); // Lưu session cookie 30 ngày để tránh mất đăng nhập khi khởi động lại máy/đóng trình duyệt
 ini_set('session.gc_maxlifetime', '2592000'); // 30 ngày = khớp với LoginCookieStore/Validity
 
+$cfg['LoginCookieValidity'] = 2592000;
+$cfg['LoginCookieStore'] = 2592000;
+
 /**
  * Session save path
  */
