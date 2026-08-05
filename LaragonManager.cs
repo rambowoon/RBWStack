@@ -1297,7 +1297,16 @@ namespace RBWStack
                 else if (row.BaseDestFolder.Contains("nginx")) filter = "*nginx*.zip";
                 else if (row.ComponentName.Contains("phpMyAdmin")) filter = "*phpmyadmin*.zip";
 
-                string[] files = Directory.GetFiles("downloads", filter);
+                List<string> fileList = new List<string>();
+                string[] searchDirs = new string[] { Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RBWStack"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "downloads"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools"), AppDomain.CurrentDomain.BaseDirectory };
+                foreach (var dirPath in searchDirs)
+                {
+                    if (Directory.Exists(dirPath))
+                    {
+                        fileList.AddRange(Directory.GetFiles(dirPath, filter));
+                    }
+                }
+                string[] files = fileList.ToArray();
                 if (files.Length > 0)
                 {
                     long maxLen = 0;
@@ -1944,9 +1953,10 @@ namespace RBWStack
             sb.AppendLine("LoadModule ssl_module modules/mod_ssl.so");
             sb.AppendLine("LoadModule socache_shmcb_module modules/mod_socache_shmcb.so");
             sb.AppendLine("");
-            sb.AppendLine("ScriptAlias /php/ \"" + Path.GetFullPath(phpDir).Replace("\\", "/") + "/\"");
-            sb.AppendLine("Action application/x-httpd-php \"/php/php-cgi.exe\"");
-            sb.AppendLine("AddHandler application/x-httpd-php .php");
+            int rootPhpPortGlob = (rootPhpVer == "Mặc định (Default)" || rootPhpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase)) ? 9000 : MainForm.GetPhpPortForVersion(rootPhpVer);
+            sb.AppendLine("<FilesMatch \\.php$>");
+            sb.AppendLine(string.Format("    SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", rootPhpPortGlob));
+            sb.AppendLine("</FilesMatch>");
             sb.AppendLine("");
             sb.AppendLine("ServerAdmin admin@localhost");
             sb.AppendLine("ServerName localhost:" + webPort);
@@ -1990,9 +2000,6 @@ namespace RBWStack
             int rootPhpPort = (rootPhpVer == "Mặc định (Default)" || rootPhpVer.Equals(activePhpVer, StringComparison.OrdinalIgnoreCase))
                 ? 9000
                 : MainForm.GetPhpPortForVersion(rootPhpVer);
-            sb.AppendLine("        <FilesMatch \\.php$>");
-            sb.AppendLine(string.Format("            SetHandler \"proxy:fcgi://127.0.0.1:{0}//./\"", rootPhpPort));
-            sb.AppendLine("        </FilesMatch>");
             sb.AppendLine("    </Directory>");
             sb.AppendLine("</VirtualHost>");
             sb.AppendLine("");
@@ -7587,7 +7594,16 @@ $cfg['SendErrorReports']              = 'never';
                 else if (row.BaseDestFolder.Contains("nginx")) filter = "*nginx*.zip";
                 else if (row.ComponentName.Contains("phpMyAdmin")) filter = "*phpmyadmin*.zip";
 
-                string[] files = Directory.GetFiles("downloads", filter);
+                List<string> fileList = new List<string>();
+                string[] searchDirs = new string[] { Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "RBWStack"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "downloads"), Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "tools"), AppDomain.CurrentDomain.BaseDirectory };
+                foreach (var dirPath in searchDirs)
+                {
+                    if (Directory.Exists(dirPath))
+                    {
+                        fileList.AddRange(Directory.GetFiles(dirPath, filter));
+                    }
+                }
+                string[] files = fileList.ToArray();
                 if (files.Length > 0)
                 {
                     long maxLen = 0;
