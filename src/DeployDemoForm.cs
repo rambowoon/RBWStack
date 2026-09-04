@@ -1488,15 +1488,45 @@ namespace RBWStack
 
         private string GenerateDemoDbSuffix(string category, string projectName)
         {
+            string namingMode = "default";
+            try
+            {
+                var cfg = LoadGlobalConfig();
+                if (cfg.ContainsKey("db_naming_mode")) namingMode = cfg["db_naming_mode"];
+            }
+            catch { }
+
             string catNum = "";
             var m = System.Text.RegularExpressions.Regex.Match(category ?? "", @"(\d+)$");
             if (m.Success) catNum = m.Groups[1].Value.PadLeft(2, '0');
             string prefix = "6" + catNum;
-            string parts0 = (projectName ?? "").Split('_')[0];
-            string cleanBase = System.Text.RegularExpressions.Regex.Replace(parts0.ToLower(), "[^a-z]", "");
-            string name = cleanBase.Length > 10 ? cleanBase.Substring(0, 10) : cleanBase;
-            string suffix = prefix + name;
-            return suffix.Length > 13 ? suffix.Substring(0, 13) : suffix;
+
+            if (namingMode == "contract_code" || namingMode == "contract")
+            {
+                string raw = projectName ?? "";
+                string contractPart = raw;
+                int lastIdx = raw.LastIndexOf('_');
+                if (lastIdx >= 0 && lastIdx < raw.Length - 1)
+                {
+                    contractPart = raw.Substring(lastIdx + 1);
+                }
+                string cleanBase = System.Text.RegularExpressions.Regex.Replace(contractPart.ToLower(), "[^a-z0-9]", "");
+                if (string.IsNullOrEmpty(cleanBase))
+                {
+                    cleanBase = System.Text.RegularExpressions.Regex.Replace(raw.ToLower(), "[^a-z0-9]", "");
+                }
+                string name = cleanBase.Length > 10 ? cleanBase.Substring(0, 10) : cleanBase;
+                string suffix = prefix + name;
+                return suffix.Length > 13 ? suffix.Substring(0, 13) : suffix;
+            }
+            else
+            {
+                string parts0 = (projectName ?? "").Split('_')[0];
+                string cleanBase = System.Text.RegularExpressions.Regex.Replace(parts0.ToLower(), "[^a-z]", "");
+                string name = cleanBase.Length > 10 ? cleanBase.Substring(0, 10) : cleanBase;
+                string suffix = prefix + name;
+                return suffix.Length > 13 ? suffix.Substring(0, 13) : suffix;
+            }
         }
 
         private void PrintBridgeLogs(string bridgeRes)

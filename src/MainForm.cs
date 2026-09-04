@@ -383,7 +383,7 @@ namespace RBWStack
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.3.4", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.3.5", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -1454,6 +1454,45 @@ namespace RBWStack
             var txtFontSource = new TextBox();
             addCustomField(pnlDemoBox, "THƯ MỤC FONT LOCAL", txtFontSource, "font_source_path", 20, 362, 305, 30, v => { var c=DeployDemoForm.LoadGlobalConfig(); c["font_source_path"]=v; DeployDemoForm.SaveGlobalConfig(c); });
 
+            // Database Naming Mode (Default vs Contract Code / Mã hợp đồng sau dấu _)
+            Label lblDbMode = new Label();
+            lblDbMode.Text = "KIỂU TẠO DATABASE TỰ ĐỘNG";
+            lblDbMode.ForeColor = dfLblColor;
+            lblDbMode.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            lblDbMode.Location = new Point(20, 414);
+            lblDbMode.Size = new Size(305, 15);
+            pnlDemoBox.Controls.Add(lblDbMode);
+
+            Panel pnlDbModeWrap = new Panel();
+            pnlDbModeWrap.Location = new Point(20, 432);
+            pnlDbModeWrap.Size = new Size(305, 30);
+            pnlDbModeWrap.BackColor = dfInputBg;
+            pnlDbModeWrap.Paint += (s, p) => {
+                using (var pen = new Pen(dfNormalBorder, 1f))
+                    p.Graphics.DrawRectangle(pen, 0, 0, pnlDbModeWrap.Width - 1, pnlDbModeWrap.Height - 1);
+            };
+
+            var cbDbNamingMode = new NoScrollComboBox();
+            cbDbNamingMode.Items.AddRange(new string[] { "Mặc định (Tên dự án)", "Mã hợp đồng (Đuôi sau dấu _)" });
+            var initialDemoCfg = DeployDemoForm.LoadGlobalConfig();
+            string curDbMode = initialDemoCfg.ContainsKey("db_naming_mode") ? initialDemoCfg["db_naming_mode"] : "default";
+            cbDbNamingMode.SelectedIndex = (curDbMode == "contract_code" || curDbMode == "contract") ? 1 : 0;
+            cbDbNamingMode.BackColor = dfInputBg;
+            cbDbNamingMode.ForeColor = Color.FromArgb(30, 40, 95);
+            cbDbNamingMode.FlatStyle = FlatStyle.Flat;
+            cbDbNamingMode.DropDownStyle = ComboBoxStyle.DropDownList;
+            cbDbNamingMode.Font = new Font("Segoe UI", 9f);
+            cbDbNamingMode.Location = new Point(8, 4);
+            cbDbNamingMode.Size = new Size(289, 22);
+            cbDbNamingMode.SelectedIndexChanged += (s, e) => {
+                var c = DeployDemoForm.LoadGlobalConfig();
+                c["db_naming_mode"] = cbDbNamingMode.SelectedIndex == 1 ? "contract_code" : "default";
+                DeployDemoForm.SaveGlobalConfig(c);
+            };
+            pnlDbModeWrap.Controls.Add(cbDbNamingMode);
+            pnlDemoBox.Controls.Add(pnlDbModeWrap);
+            ApplyRoundedRegion(pnlDbModeWrap, 6);
+
             // TAB 4: ABOUT PANEL
             pnlTabAbout = new Panel();
             pnlTabAbout.Size = new Size(tabW, tabH);
@@ -1765,13 +1804,13 @@ namespace RBWStack
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.3.4", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("2.3.5", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.3.4).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.3.5).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -1807,7 +1846,7 @@ namespace RBWStack
             Label lblProDesc = new Label();
             lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.3.4 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v2.3.5 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -6234,7 +6273,7 @@ namespace RBWStack
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.3.4  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.3.5  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
