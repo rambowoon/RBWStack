@@ -1271,6 +1271,44 @@ namespace RBWStack
                     content += "\r\nsession.gc_maxlifetime = 2592000\r\n";
                 }
 
+                // Auto-configure ionCube PHP Loader (Hỗ trợ chạy PHP mã hóa bằng ionCube 14/15)
+                string phpDirName = Path.GetFileName(phpDir.TrimEnd('\\', '/'));
+                var mVer = Regex.Match(phpDirName, @"(\d+\.\d+)");
+                if (mVer.Success)
+                {
+                    string verStr = mVer.Groups[1].Value;
+                    string loaderName = "ioncube_loader_win_" + verStr + ".dll";
+                    string ioncubeDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "ioncube");
+                    string srcLoader = Path.Combine(ioncubeDataDir, loaderName);
+                    string extDir = Path.Combine(phpDir, "ext");
+                    string dstLoader = Path.Combine(extDir, loaderName);
+
+                    if (File.Exists(srcLoader))
+                    {
+                        if (!Directory.Exists(extDir)) Directory.CreateDirectory(extDir);
+                        if (!File.Exists(dstLoader))
+                        {
+                            try { File.Copy(srcLoader, dstLoader, true); } catch { }
+                        }
+                    }
+
+                    if (File.Exists(dstLoader))
+                    {
+                        if (!Regex.IsMatch(content, @"(?m)^\s*zend_extension\s*=.*" + Regex.Escape(loaderName), RegexOptions.IgnoreCase))
+                        {
+                            string zendLine = "zend_extension = \"" + loaderName + "\"";
+                            if (Regex.IsMatch(content, @"\[PHP\]", RegexOptions.IgnoreCase))
+                            {
+                                content = Regex.Replace(content, @"(\[PHP\]\r?\n)", "$1" + zendLine + "\r\n", RegexOptions.IgnoreCase);
+                            }
+                            else
+                            {
+                                content = zendLine + "\r\n" + content;
+                            }
+                        }
+                    }
+                }
+
                 File.WriteAllText(phpIniPath, content);
             }
             catch { }

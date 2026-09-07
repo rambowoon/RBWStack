@@ -383,7 +383,7 @@ namespace RBWStack
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.3.5", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -1804,13 +1804,13 @@ namespace RBWStack
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.TrimStart('v', 'V').Equals("2.3.5", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v2.3.5).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v3.0.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -1846,7 +1846,7 @@ namespace RBWStack
             Label lblProDesc = new Label();
             lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v2.3.5 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v3.0.0 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -3194,7 +3194,51 @@ namespace RBWStack
                     }
                 }
 
-                if (modified || smtpChanged || sslChanged)
+                // Auto-configure ionCube PHP Loader (Hỗ trợ chạy PHP mã hóa bằng ionCube 14/15)
+                bool ioncubeChanged = false;
+                string targetPhpDir = Path.GetDirectoryName(phpConfPath);
+                if (!string.IsNullOrEmpty(targetPhpDir) && Directory.Exists(targetPhpDir))
+                {
+                    string phpDirName = Path.GetFileName(targetPhpDir.TrimEnd('\\', '/'));
+                    var mVer = Regex.Match(phpDirName, @"(\d+\.\d+)");
+                    if (mVer.Success)
+                    {
+                        string verStr = mVer.Groups[1].Value;
+                        string loaderName = "ioncube_loader_win_" + verStr + ".dll";
+                        string ioncubeDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "ioncube");
+                        string srcLoader = Path.Combine(ioncubeDataDir, loaderName);
+                        string extDir = Path.Combine(targetPhpDir, "ext");
+                        string dstLoader = Path.Combine(extDir, loaderName);
+
+                        if (File.Exists(srcLoader))
+                        {
+                            if (!Directory.Exists(extDir)) Directory.CreateDirectory(extDir);
+                            if (!File.Exists(dstLoader))
+                            {
+                                try { File.Copy(srcLoader, dstLoader, true); } catch { }
+                            }
+                        }
+
+                        if (File.Exists(dstLoader))
+                        {
+                            if (!Regex.IsMatch(content, @"(?m)^\s*zend_extension\s*=.*" + Regex.Escape(loaderName), RegexOptions.IgnoreCase))
+                            {
+                                string zendLine = "zend_extension = \"" + loaderName + "\"";
+                                if (Regex.IsMatch(content, @"\[PHP\]", RegexOptions.IgnoreCase))
+                                {
+                                    content = Regex.Replace(content, @"(\[PHP\]\r?\n)", "$1" + zendLine + "\r\n", RegexOptions.IgnoreCase);
+                                }
+                                else
+                                {
+                                    content = zendLine + "\r\n" + content;
+                                }
+                                ioncubeChanged = true;
+                            }
+                        }
+                    }
+                }
+
+                if (modified || smtpChanged || sslChanged || ioncubeChanged)
                 {
                     File.WriteAllText(phpConfPath, content);
                 }
@@ -5533,6 +5577,44 @@ namespace RBWStack
                     content += "\r\nsession.gc_maxlifetime = 2592000\r\n";
                 }
 
+                // Auto-configure ionCube PHP Loader (Hỗ trợ chạy PHP mã hóa bằng ionCube 14/15)
+                string phpDirName = Path.GetFileName(phpDir.TrimEnd('\\', '/'));
+                var mVer = Regex.Match(phpDirName, @"(\d+\.\d+)");
+                if (mVer.Success)
+                {
+                    string verStr = mVer.Groups[1].Value;
+                    string loaderName = "ioncube_loader_win_" + verStr + ".dll";
+                    string ioncubeDataDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "data", "ioncube");
+                    string srcLoader = Path.Combine(ioncubeDataDir, loaderName);
+                    string extDir = Path.Combine(phpDir, "ext");
+                    string dstLoader = Path.Combine(extDir, loaderName);
+
+                    if (File.Exists(srcLoader))
+                    {
+                        if (!Directory.Exists(extDir)) Directory.CreateDirectory(extDir);
+                        if (!File.Exists(dstLoader))
+                        {
+                            try { File.Copy(srcLoader, dstLoader, true); } catch { }
+                        }
+                    }
+
+                    if (File.Exists(dstLoader))
+                    {
+                        if (!Regex.IsMatch(content, @"(?m)^\s*zend_extension\s*=.*" + Regex.Escape(loaderName), RegexOptions.IgnoreCase))
+                        {
+                            string zendLine = "zend_extension = \"" + loaderName + "\"";
+                            if (Regex.IsMatch(content, @"\[PHP\]", RegexOptions.IgnoreCase))
+                            {
+                                content = Regex.Replace(content, @"(\[PHP\]\r?\n)", "$1" + zendLine + "\r\n", RegexOptions.IgnoreCase);
+                            }
+                            else
+                            {
+                                content = zendLine + "\r\n" + content;
+                            }
+                        }
+                    }
+                }
+
                 File.WriteAllText(phpIniPath, content);
             }
             catch { }
@@ -6273,7 +6355,7 @@ namespace RBWStack
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v2.3.5  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v3.0.0  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);

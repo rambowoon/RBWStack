@@ -14,6 +14,8 @@
 !app.ico
 !.gitignore
 !data/bridge.php
+!data/ioncube/
+!data/ioncube/**
 !ssl/
 !ssl/cacert.pem
 !ssl/localhost.pfx
