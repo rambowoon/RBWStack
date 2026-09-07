@@ -3210,6 +3210,21 @@ namespace RBWStack
                         string extDir = Path.Combine(targetPhpDir, "ext");
                         string dstLoader = Path.Combine(extDir, loaderName);
 
+                        if (!File.Exists(srcLoader) && !File.Exists(dstLoader))
+                        {
+                            try
+                            {
+                                if (!Directory.Exists(ioncubeDataDir)) Directory.CreateDirectory(ioncubeDataDir);
+                                string rawUrl = "https://raw.githubusercontent.com/rambowoon/RBWStack/main/data/ioncube/" + loaderName;
+                                using (var wc = new WebClient())
+                                {
+                                    wc.Headers.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                                    wc.DownloadFile(rawUrl, srcLoader);
+                                }
+                            }
+                            catch { }
+                        }
+
                         if (File.Exists(srcLoader))
                         {
                             if (!Directory.Exists(extDir)) Directory.CreateDirectory(extDir);
@@ -5588,6 +5603,21 @@ namespace RBWStack
                     string srcLoader = Path.Combine(ioncubeDataDir, loaderName);
                     string extDir = Path.Combine(phpDir, "ext");
                     string dstLoader = Path.Combine(extDir, loaderName);
+
+                    if (!File.Exists(srcLoader) && !File.Exists(dstLoader))
+                    {
+                        try
+                        {
+                            if (!Directory.Exists(ioncubeDataDir)) Directory.CreateDirectory(ioncubeDataDir);
+                            string rawUrl = "https://raw.githubusercontent.com/rambowoon/RBWStack/main/data/ioncube/" + loaderName;
+                            using (var wc = new WebClient())
+                            {
+                                wc.Headers.Add("user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)");
+                                wc.DownloadFile(rawUrl, srcLoader);
+                            }
+                        }
+                        catch { }
+                    }
 
                     if (File.Exists(srcLoader))
                     {
