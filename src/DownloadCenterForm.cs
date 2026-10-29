@@ -477,7 +477,7 @@ namespace RBWStack
                 // Query directory listing directly to get ALL versions including 8.4, 8.5
                 string html = wc.DownloadString("https://windows.php.net/downloads/releases/");
                 
-                MatchCollection matches = Regex.Matches(html, @"href=""(php-(\d+\.\d+\.\d+)-Win32-(?:vs\d+|vc\d+)-x64\.zip)""");
+                MatchCollection matches = Regex.Matches(html, @"href=""(php-(\d+\.\d+\.\d+)(?:-\d+)?-Win32-(?:vs\d+|vc\d+)-x64\.zip)""", RegexOptions.IgnoreCase);
                 HashSet<string> added = new HashSet<string>();
                 
                 List<VersionOption> temp = new List<VersionOption>();
@@ -511,7 +511,7 @@ namespace RBWStack
                 });
 
                 // Take top 6 latest versions (e.g. 8.5.x, 8.4.x, 8.3.x, 8.2.x)
-                for (int i = 0; i < Math.Min(temp.Count, 6); i++)
+                for (int i = 0; i < Math.Min(temp.Count, 8); i++)
                 {
                     list.Add(temp[i]);
                 }

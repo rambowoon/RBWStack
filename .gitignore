@@ -8,6 +8,8 @@
 !src/
 !src/**
 !build.bat
+!www/
+!www/**
 
 # Allow specific binaries and configs
 !RBWStack.exe
