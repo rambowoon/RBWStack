@@ -766,8 +766,16 @@ namespace RBWStack
             string ftpHost = _txtFtpHost.Text.Trim();
             string ftpUser = _txtFtpUser.Text.Trim();
             string ftpPass = _txtFtpPass.Text.Trim();
-            string ftpRoot = string.IsNullOrWhiteSpace(_txtFtpRoot.Text) ? "/public_html" : _txtFtpRoot.Text.Trim();
             string webDomain = _txtWebDomain.Text.Trim();
+            string ftpRoot = string.IsNullOrWhiteSpace(_txtFtpRoot.Text) ? "/public_html" : _txtFtpRoot.Text.Trim();
+            if (!string.IsNullOrEmpty(webDomain))
+            {
+                ftpRoot = ftpRoot.Replace("{domain}", webDomain);
+            }
+
+
+
+            if (!string.IsNullOrEmpty(webDomain)) { ftpRoot = ftpRoot.Replace("{domain}", webDomain); }
             string daUser = _txtDaUser.Text.Trim();
             string daPort = string.IsNullOrWhiteSpace(_txtDaPort.Text) ? "2222" : _txtDaPort.Text.Trim();
             bool useSSL = _chkSsl.Checked;
@@ -1412,6 +1420,10 @@ namespace RBWStack
                         ftpUser = _txtFtpUser.Text.Trim();
                         ftpPass = _txtFtpPass.Text.Trim();
                         ftpRoot = string.IsNullOrWhiteSpace(_txtFtpRoot.Text) ? "/public_html" : _txtFtpRoot.Text.Trim();
+                        if (!string.IsNullOrEmpty(webDomain))
+                        {
+                            ftpRoot = ftpRoot.Replace("{domain}", webDomain);
+                        }
                     });
                     string ftpBase = "ftp://" + ftpHost + "/" + (ftpRoot.TrimStart('/') + "/" + sitePath.Replace('\\', '/').TrimStart('/')).Replace("//", "/").TrimEnd('/') + "/";
                     string ftpCreds = ftpUser + ":" + ftpPass;

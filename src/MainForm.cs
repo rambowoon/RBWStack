@@ -383,7 +383,7 @@ namespace RBWStack
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.1", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.2", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -1804,13 +1804,13 @@ namespace RBWStack
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.1", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.2", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v3.0.1).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v3.0.2).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -1846,7 +1846,7 @@ namespace RBWStack
             Label lblProDesc = new Label();
             lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v3.0.1 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v3.0.2 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -6385,7 +6385,7 @@ namespace RBWStack
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v3.0.1  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v3.0.2  →  Phiên bản mới: {0}", release.TagName);
             lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);

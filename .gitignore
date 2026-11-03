@@ -11,6 +11,15 @@
 !www/
 !www/**
 
+# Ignore heavy directories inside www to prevent disk thrashing
+www/**/vendor/
+www/**/node_modules/
+www/**/upload/
+www/**/thumbs/
+www/**/.git/
+www/**/storage/
+www/**/cache/
+
 # Allow specific binaries and configs
 !RBWStack.exe
 !app.ico
