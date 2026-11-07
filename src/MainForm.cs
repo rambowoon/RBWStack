@@ -23,12 +23,12 @@ namespace RBWStack
         private Color colorBg = Color.FromArgb(255, 255, 255); // Crisp white
         private Color colorSidebarBg = Color.FromArgb(249, 250, 251); // Soft light grey/zinc-50
         private Color colorCard = Color.FromArgb(255, 255, 255); // White cards
-        private Color colorText = Color.FromArgb(17, 24, 39); // Gray-900 (almost black)
-        private Color colorTextDim = Color.FromArgb(107, 114, 128); // Gray-500 (dim text)
+        private Color colorText = Color.FromArgb(15, 23, 42); // Slate-900 (deep crisp text)
+        private Color colorTextDim = Color.FromArgb(100, 116, 139); // Slate-500 (smooth secondary text)
         private Color colorGreen = Color.FromArgb(16, 185, 129); // Emerald-500 (emerald active green)
         private Color colorRed = Color.FromArgb(239, 68, 68); // Red-500
-        private Color colorAccent = Color.FromArgb(243, 244, 246); // Gray-100 (selected tab)
-        private Color colorBorder = Color.FromArgb(170, 175, 185); // Gray-400 (clearly visible slate border)
+        private Color colorAccent = Color.FromArgb(241, 245, 249); // Slate-100 (selected tab)
+        private Color colorBorder = Color.FromArgb(226, 232, 240); // Slate-200 (modern, clean, smooth border)
 
         private Process procWebServer = null;
         private Process procMySQL = null;
@@ -60,6 +60,8 @@ namespace RBWStack
         // --- Laravel Herd Style Controls ---
         private Panel pnlSidebar;
         private Panel pnlCardsContainer;
+        private SmoothScrollHelper sitesScrollHelper;
+        private SmoothScrollHelper downloadScrollHelper;
         private string activeFilterComponentName = "ALL";
         private bool isSyncCompleted = false;
         private bool isRealExit = false; // true khi thoát thực sự từ tray menu
@@ -191,7 +193,63 @@ namespace RBWStack
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern uint RegisterWindowMessage(string lpString);
 
+        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        public static extern int SetWindowTheme(IntPtr hWnd, string pszSubAppName, string pszSubIdList);
+
+        [DllImport("user32.dll")]
+        public static extern bool ShowScrollBar(IntPtr hWnd, int wBar, bool bShow);
+
         private uint restoreMessage = 0;
+
+        public static Image LoadAppLogo()
+        {
+            string[] pngCandidates = new string[] {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "app.png"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.png")
+            };
+            foreach (var pngPath in pngCandidates)
+            {
+                try
+                {
+                    if (File.Exists(pngPath))
+                    {
+                        using (var fs = new FileStream(pngPath, FileMode.Open, FileAccess.Read))
+                        {
+                            return Image.FromStream(fs);
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            string[] icoCandidates = new string[] {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "app.ico"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico")
+            };
+            foreach (var icoPath in icoCandidates)
+            {
+                try
+                {
+                    if (File.Exists(icoPath))
+                    {
+                        byte[] bytes = File.ReadAllBytes(icoPath);
+                        for (int i = 0; i < bytes.Length - 8; i++)
+                        {
+                            if (bytes[i] == 0x89 && bytes[i + 1] == 0x50 && bytes[i + 2] == 0x4E && bytes[i + 3] == 0x47)
+                            {
+                                using (var ms = new MemoryStream(bytes, i, bytes.Length - i))
+                                {
+                                    return new Bitmap(ms);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            return null;
+        }
 
         private void Header_MouseDown(object sender, MouseEventArgs e)
         {
@@ -234,7 +292,8 @@ namespace RBWStack
             // Set tray/app icon
             try
             {
-                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "app.ico");
+                if (!File.Exists(iconPath)) iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
                 if (File.Exists(iconPath))
                 {
                     this.Icon = new Icon(iconPath);
@@ -280,20 +339,27 @@ namespace RBWStack
                 }
             };
 
+            // Header Logo PictureBox replaces text title for a cleaner, modern look
+            PictureBox pbHeaderLogo = new PictureBox();
+            pbHeaderLogo.Size = new Size(22, 22);
+            pbHeaderLogo.Location = new Point(14, 11);
+            pbHeaderLogo.SizeMode = PictureBoxSizeMode.Zoom;
+            pbHeaderLogo.BackColor = Color.Transparent;
+            pbHeaderLogo.Image = LoadAppLogo();
+            pbHeaderLogo.MouseDown += Header_MouseDown;
+            pnlHeader.Controls.Add(pbHeaderLogo);
+
             lblHeaderTitle = new Label();
-            lblHeaderTitle.Text = "⚡  RBW STACK";
-            lblHeaderTitle.Font = new Font("Segoe UI Semibold", 10f, FontStyle.Regular);
-            lblHeaderTitle.ForeColor = colorText;
-            lblHeaderTitle.AutoSize = true;
-            lblHeaderTitle.Location = new Point(15, 12);
+            lblHeaderTitle.Text = "";
+            lblHeaderTitle.Visible = false;
             pnlHeader.Controls.Add(lblHeaderTitle);
 
             lblSyncStatus = new Label();
-            lblSyncStatus.Text = "🔄  ĐANG ĐỒNG BỘ PHIÊN BẢN...";
-            lblSyncStatus.Font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold);
+            lblSyncStatus.Text = "ĐANG ĐỒNG BỘ PHIÊN BẢN...";
+            lblSyncStatus.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
             lblSyncStatus.ForeColor = Color.FromArgb(59, 130, 246); // Modern Blue-500
             lblSyncStatus.AutoSize = true;
-            lblSyncStatus.Location = new Point(140, 14); // Positioned next to Title
+            lblSyncStatus.Location = new Point(44, 13); // Positioned next to Title logo
             lblSyncStatus.Visible = true;
             pnlHeader.Controls.Add(lblSyncStatus);
 
@@ -383,7 +449,7 @@ namespace RBWStack
                             var release = CheckForUpdatesCached("rambowoon/RBWStack", false);
                             if (release != null)
                             {
-                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.2", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("3.1.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     this.BeginInvoke((MethodInvoker)delegate {
                                         ShowUpdatePrompt(release);
@@ -430,7 +496,7 @@ namespace RBWStack
             // Large title "Settings" at top of sidebar
             Label lblSidebarTitle = new Label();
             lblSidebarTitle.Text = "Settings";
-            lblSidebarTitle.Font = new Font("Segoe UI", 16f, FontStyle.Bold);
+            lblSidebarTitle.Font = new Font("Segoe UI", 15f, FontStyle.Bold);
             lblSidebarTitle.ForeColor = colorText;
             lblSidebarTitle.Location = new Point(20, 15);
             lblSidebarTitle.Size = new Size(160, 35);
@@ -452,7 +518,7 @@ namespace RBWStack
 
             btnTabSites = new ModernButton();
             btnTabSites.Text = "Sites";
-            btnTabSites.IconGlyph = "\uE7F4"; // Home/Workspace screen
+            btnTabSites.IconGlyph = "\uE80F"; // Modern Home/Sites icon
             btnTabSites.Size = new Size(198, 34);
             btnTabSites.Location = new Point(1, 98);
             btnTabSites.NormalColor = Color.Transparent;
@@ -467,7 +533,7 @@ namespace RBWStack
             
             btnTabDashboard = new ModernButton();
             btnTabDashboard.Text = "Services";
-            btnTabDashboard.IconGlyph = "\uEC27"; // Services stack
+            btnTabDashboard.IconGlyph = "\uE718"; // Services Application Grid
             btnTabDashboard.Size = new Size(198, 34);
             btnTabDashboard.Location = new Point(1, 136);
             btnTabDashboard.NormalColor = Color.Transparent;
@@ -507,7 +573,7 @@ namespace RBWStack
 
             btnTabNode = new ModernButton();
             btnTabNode.Text = "Node.js Engine";
-            btnTabNode.IconGlyph = "\uE9E9"; // Connection/ethernet
+            btnTabNode.IconGlyph = "\uE71E"; // Lightning speed bolt
             btnTabNode.Size = new Size(198, 34);
             btnTabNode.Location = new Point(1, 250);
             btnTabNode.NormalColor = Color.Transparent;
@@ -533,7 +599,7 @@ namespace RBWStack
 
             btnTabNginx = new ModernButton();
             btnTabNginx.Text = "Nginx Server";
-            btnTabNginx.IconGlyph = "\uE700"; // Globe outline
+            btnTabNginx.IconGlyph = "\uE7BE"; // Speedometer performance dial
             btnTabNginx.Size = new Size(198, 34);
             btnTabNginx.Location = new Point(1, 326);
             btnTabNginx.NormalColor = Color.Transparent;
@@ -559,7 +625,7 @@ namespace RBWStack
 
             btnTabPhpMyAdmin = new ModernButton();
             btnTabPhpMyAdmin.Text = "phpMyAdmin";
-            btnTabPhpMyAdmin.IconGlyph = "\uE12B"; // Database/Globe table
+            btnTabPhpMyAdmin.IconGlyph = "\uE838"; // Cabinet / database storage
             btnTabPhpMyAdmin.Size = new Size(198, 34);
             btnTabPhpMyAdmin.Location = new Point(1, 402);
             btnTabPhpMyAdmin.NormalColor = Color.Transparent;
@@ -572,7 +638,7 @@ namespace RBWStack
 
             btnTabVcRuntime = new ModernButton();
             btnTabVcRuntime.Text = "VC++ Runtime";
-            btnTabVcRuntime.IconGlyph = "\uE8B7"; // Toolbox/wrench
+            btnTabVcRuntime.IconGlyph = "\uE8B7"; // Toolbox / developer runtime toolkit
             btnTabVcRuntime.Size = new Size(198, 34);
             btnTabVcRuntime.Location = new Point(1, 440);
             btnTabVcRuntime.NormalColor = Color.Transparent;
@@ -585,7 +651,7 @@ namespace RBWStack
 
             btnTabDownload = new ModernButton();
             btnTabDownload.Text = "RBW Pro";
-            btnTabDownload.IconGlyph = "\uE734"; // Star icon for Pro
+            btnTabDownload.IconGlyph = "\uE735"; // Premium solid star
             btnTabDownload.Size = new Size(198, 34);
             btnTabDownload.Location = new Point(1, 478);
             btnTabDownload.NormalColor = Color.Transparent;
@@ -653,15 +719,6 @@ namespace RBWStack
             lblServicesHeader.AutoSize = true;
             pnlServicesList.Controls.Add(lblServicesHeader);
 
-            ModernButton btnAddServiceDeco = new ModernButton();
-            btnAddServiceDeco.Text = "Add Service";
-            btnAddServiceDeco.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
-            btnAddServiceDeco.Location = new Point(625, 18);
-            btnAddServiceDeco.Size = new Size(115, 28);
-            btnAddServiceDeco.NormalColor = Color.White;
-            btnAddServiceDeco.BorderColor = colorBorder;
-            pnlServicesList.Controls.Add(btnAddServiceDeco);
-
             // Group: Search/Web
             Label lblGroupWeb = new Label();
             lblGroupWeb.Text = "Web & Engine";
@@ -703,7 +760,7 @@ namespace RBWStack
 
             lblWebTitle = new Label();
             lblWebTitle.Text = selectedWebServerType.ToUpper() + " SERVER";
-            lblWebTitle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lblWebTitle.Font = new Font("Segoe UI", 9.75f, FontStyle.Bold);
             lblWebTitle.ForeColor = colorText;
             lblWebTitle.Location = new Point(80, 12);
             lblWebTitle.AutoSize = true;
@@ -711,7 +768,7 @@ namespace RBWStack
 
             lblWebStatusText = new Label();
             lblWebStatusText.Text = "Đang dừng";
-            lblWebStatusText.Font = new Font("Segoe UI Semibold", 8.5f);
+            lblWebStatusText.Font = new Font("Segoe UI", 8.75f);
             lblWebStatusText.ForeColor = colorTextDim;
             lblWebStatusText.Location = new Point(80, 34);
             lblWebStatusText.Size = new Size(300, 20);
@@ -751,6 +808,7 @@ namespace RBWStack
             btnWebStop.Location = new Point(570, 18);
             btnWebStop.Size = new Size(68, 28);
             btnWebStop.Enabled = false;
+            btnWebStop.Visible = false;
             btnWebStop.Click += WebStop_Click;
             pnlRowWeb.Controls.Add(btnWebStop);
 
@@ -798,7 +856,7 @@ namespace RBWStack
 
             lblPhpTitle = new Label();
             lblPhpTitle.Text = "PHP ENGINE";
-            lblPhpTitle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lblPhpTitle.Font = new Font("Segoe UI", 9.75f, FontStyle.Bold);
             lblPhpTitle.ForeColor = colorText;
             lblPhpTitle.Location = new Point(80, 12);
             lblPhpTitle.AutoSize = true;
@@ -806,7 +864,7 @@ namespace RBWStack
 
             lblPhpStatusText = new Label();
             lblPhpStatusText.Text = "Đang dừng";
-            lblPhpStatusText.Font = new Font("Segoe UI Semibold", 8.5f);
+            lblPhpStatusText.Font = new Font("Segoe UI", 8.75f);
             lblPhpStatusText.ForeColor = colorTextDim;
             lblPhpStatusText.Location = new Point(80, 34);
             lblPhpStatusText.Size = new Size(300, 20);
@@ -846,6 +904,7 @@ namespace RBWStack
             btnPhpStop.Location = new Point(570, 18);
             btnPhpStop.Size = new Size(68, 28);
             btnPhpStop.Enabled = false;
+            btnPhpStop.Visible = false;
             btnPhpStop.Click += PhpStop_Click;
             pnlRowPhp.Controls.Add(btnPhpStop);
 
@@ -902,7 +961,7 @@ namespace RBWStack
 
             lblMySqlTitle = new Label();
             lblMySqlTitle.Text = "MYSQL / MARIADB";
-            lblMySqlTitle.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+            lblMySqlTitle.Font = new Font("Segoe UI", 9.75f, FontStyle.Bold);
             lblMySqlTitle.ForeColor = colorText;
             lblMySqlTitle.Location = new Point(80, 12);
             lblMySqlTitle.AutoSize = true;
@@ -910,7 +969,7 @@ namespace RBWStack
 
             lblMySqlStatusText = new Label();
             lblMySqlStatusText.Text = "Đang dừng";
-            lblMySqlStatusText.Font = new Font("Segoe UI Semibold", 8.5f);
+            lblMySqlStatusText.Font = new Font("Segoe UI", 8.75f);
             lblMySqlStatusText.ForeColor = colorTextDim;
             lblMySqlStatusText.Location = new Point(80, 34);
             lblMySqlStatusText.Size = new Size(300, 20);
@@ -950,6 +1009,7 @@ namespace RBWStack
             btnMySqlStop.Location = new Point(570, 18);
             btnMySqlStop.Size = new Size(68, 28);
             btnMySqlStop.Enabled = false;
+            btnMySqlStop.Visible = false;
             btnMySqlStop.Click += MySqlStop_Click;
             pnlRowMySql.Controls.Add(btnMySqlStop);
 
@@ -1036,7 +1096,7 @@ namespace RBWStack
             lblWebRoot = new Label();
             lblWebRoot.Text = "wwwRoot: " + wwwDir;
             lblWebRoot.ForeColor = colorTextDim;
-            lblWebRoot.Font = new Font("Segoe UI Semibold", 8.5f);
+            lblWebRoot.Font = new Font("Segoe UI", 8.5f);
             lblWebRoot.Location = new Point(20, 15);
             lblWebRoot.Size = new Size(400, 20);
             lblWebRoot.TextAlign = ContentAlignment.MiddleLeft;
@@ -1057,7 +1117,7 @@ namespace RBWStack
 
             Label lblFooter = new Label();
             lblFooter.Text = "RBW Stack • Portable Server Manager";
-            lblFooter.Font = new Font("Segoe UI Italic", 8f);
+            lblFooter.Font = new Font("Segoe UI", 8.25f, FontStyle.Italic);
             lblFooter.ForeColor = colorTextDim;
             lblFooter.Size = new Size(720, 20);
             lblFooter.Location = new Point(20, 500);
@@ -1100,7 +1160,7 @@ namespace RBWStack
             lblStatusText = new Label();
             lblStatusText.Text = "Đang đồng bộ danh sách phiên bản mới nhất trực tuyến...";
             lblStatusText.ForeColor = colorText;
-            lblStatusText.Font = new Font("Segoe UI Semibold", 9f);
+            lblStatusText.Font = new Font("Segoe UI", 9f);
             lblStatusText.Location = new Point(20, 12);
             lblStatusText.Size = new Size(690, 20);
             pnlProgress.Controls.Add(lblStatusText);
@@ -1117,6 +1177,10 @@ namespace RBWStack
             pnlCardsContainer.Dock = DockStyle.Fill;
             pnlCardsContainer.AutoScroll = true;
             pnlCardsContainer.BackColor = colorBg;
+            pnlCardsContainer.HandleCreated += (s, e) => {
+                try { SetWindowTheme(pnlCardsContainer.Handle, "Explorer", null); } catch { }
+            };
+            downloadScrollHelper = new SmoothScrollHelper(pnlCardsContainer);
             pnlTabDownload.Controls.Add(pnlCardsContainer);
 
             // Initially render cards (offline fallbacks)
@@ -1200,8 +1264,24 @@ namespace RBWStack
             lblDemoTitle.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
             lblDemoTitle.ForeColor = Color.FromArgb(30, 41, 59); // Slate 800
             lblDemoTitle.Location = new Point(32, 20);
-            lblDemoTitle.Size = new Size(295, 20);
+            lblDemoTitle.Size = new Size(200, 20);
             pnlDemoBox.Controls.Add(lblDemoTitle);
+
+            Label btnDemoHelp = new Label();
+            btnDemoHelp.Text = "❓ Hướng dẫn";
+            btnDemoHelp.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+            btnDemoHelp.ForeColor = Color.FromArgb(139, 92, 246);
+            btnDemoHelp.Location = new Point(235, 19);
+            btnDemoHelp.Size = new Size(95, 22);
+            btnDemoHelp.TextAlign = ContentAlignment.MiddleRight;
+            btnDemoHelp.Cursor = Cursors.Hand;
+            btnDemoHelp.Click += (s, e) => {
+                var helpForm = new DeployHelpForm();
+                helpForm.ShowDialog(this);
+            };
+            btnDemoHelp.MouseEnter += (s, e) => { btnDemoHelp.ForeColor = Color.FromArgb(109, 40, 217); };
+            btnDemoHelp.MouseLeave += (s, e) => { btnDemoHelp.ForeColor = Color.FromArgb(139, 92, 246); };
+            pnlDemoBox.Controls.Add(btnDemoHelp);
 
             // Custom styled input helper for both cards
             Color dfNormalBorder = Color.FromArgb(210, 215, 235);
@@ -1214,7 +1294,7 @@ namespace RBWStack
                  var lbl2 = new Label();
                  lbl2.Text = ltext;
                  lbl2.ForeColor = dfLblColor;
-                 lbl2.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+                 lbl2.Font = new Font("Segoe UI", 8.25f, FontStyle.Bold);
                  lbl2.Location = new Point(dx, dy);
                  lbl2.Size = new Size(dw, 15);
                  parent.Controls.Add(lbl2);
@@ -1274,7 +1354,7 @@ namespace RBWStack
             Label lblType = new Label();
             lblType.Text = "Web Server mặc định";
             lblType.ForeColor = dfLblColor;
-            lblType.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            lblType.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblType.Location = new Point(20, 50);
             lblType.Size = new Size(305, 15);
             pnlSysBox.Controls.Add(lblType);
@@ -1385,7 +1465,7 @@ namespace RBWStack
 
             btnSaveSettings = new ModernButton();
             btnSaveSettings.Text = "Lưu cài đặt hệ thống";
-            btnSaveSettings.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+            btnSaveSettings.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
             btnSaveSettings.NormalColor = Color.FromArgb(37, 99, 235);
             btnSaveSettings.HoverColor = Color.FromArgb(29, 78, 216);
             btnSaveSettings.PressedColor = Color.FromArgb(30, 64, 175);
@@ -1441,6 +1521,8 @@ namespace RBWStack
 
             var txtFtpRoot = new TextBox();
             addCustomField(pnlDemoBox, "FTP ROOT PATH", txtFtpRoot, "ftp_root", 20, 206, 305, 30, v => { var c=DeployDemoForm.LoadGlobalConfig(); c["ftp_root"]=v; DeployDemoForm.SaveGlobalConfig(c); });
+            ToolTip ttFtp = new ToolTip();
+            ttFtp.SetToolTip(txtFtpRoot, "Khuyến nghị chuẩn: /domains/{domain}/public_html để tự động khớp với WEB DOMAIN khi đổi domain");
 
             var txtWebDomain = new TextBox();
             addCustomField(pnlDemoBox, "WEB DOMAIN", txtWebDomain, "web_domain", 20, 258, 305, 30, v => { var c=DeployDemoForm.LoadGlobalConfig(); c["web_domain"]=v; DeployDemoForm.SaveGlobalConfig(c); });
@@ -1458,7 +1540,7 @@ namespace RBWStack
             Label lblDbMode = new Label();
             lblDbMode.Text = "KIỂU TẠO DATABASE TỰ ĐỘNG";
             lblDbMode.ForeColor = dfLblColor;
-            lblDbMode.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            lblDbMode.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             lblDbMode.Location = new Point(20, 414);
             lblDbMode.Size = new Size(305, 15);
             pnlDemoBox.Controls.Add(lblDbMode);
@@ -1555,7 +1637,7 @@ namespace RBWStack
 
             ModernButton btnClearMails = new ModernButton();
             btnClearMails.Text = "Xóa hết";
-            btnClearMails.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            btnClearMails.Font = new Font("Segoe UI", 8f, FontStyle.Bold);
             btnClearMails.Location = new Point(180, 12);
             btnClearMails.Size = new Size(65, 24);
             btnClearMails.NormalColor = Color.White;
@@ -1628,7 +1710,7 @@ namespace RBWStack
 
             ModernButton btnZoomMail = new ModernButton();
             btnZoomMail.Text = "Cửa sổ lớn ↗";
-            btnZoomMail.Font = new Font("Segoe UI Semibold", 7.5f, FontStyle.Bold);
+            btnZoomMail.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             btnZoomMail.Location = new Point(270, 12);
             btnZoomMail.Size = new Size(80, 24);
             btnZoomMail.NormalColor = Color.White;
@@ -1650,7 +1732,7 @@ namespace RBWStack
 
             ModernButton btnBrowserMail = new ModernButton();
             btnBrowserMail.Text = "🌐 Mở Browser ↗";
-            btnBrowserMail.Font = new Font("Segoe UI Semibold", 7.5f, FontStyle.Bold);
+            btnBrowserMail.Font = new Font("Segoe UI", 7.5f, FontStyle.Bold);
             btnBrowserMail.Location = new Point(355, 12);
             btnBrowserMail.Size = new Size(95, 24);
             btnBrowserMail.NormalColor = colorGreen;
@@ -1736,11 +1818,11 @@ namespace RBWStack
             lblAboutTitle.Size = new Size(600, 30);
             pnlAboutBox.Controls.Add(lblAboutTitle);
 
-            TextBox txtReleaseNotes = new TextBox();
+            RichTextBox txtReleaseNotes = new RichTextBox();
             txtReleaseNotes.Name = "txtReleaseNotes";
             txtReleaseNotes.Multiline = true;
             txtReleaseNotes.ReadOnly = true;
-            txtReleaseNotes.ScrollBars = ScrollBars.Vertical;
+            txtReleaseNotes.ScrollBars = RichTextBoxScrollBars.Vertical;
             txtReleaseNotes.Font = new Font("Segoe UI", 9.5f);
             txtReleaseNotes.Location = new Point(30, 110);
             txtReleaseNotes.Size = new Size(660, 370);
@@ -1804,13 +1886,13 @@ namespace RBWStack
                                     string.IsNullOrEmpty(release.ReleaseNotes) ? "(Không có mô tả chi tiết)" : release.ReleaseNotes.Replace("\n", "\r\n")
                                 );
 
-                                if (!release.TagName.TrimStart('v', 'V').Equals("3.0.2", StringComparison.OrdinalIgnoreCase))
+                                if (!release.TagName.TrimStart('v', 'V').Equals("3.1.0", StringComparison.OrdinalIgnoreCase))
                                 {
                                     ShowUpdatePrompt(release);
                                 }
                                 else
                                 {
-                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v3.0.2).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                    MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất (v3.1.0).", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
                                 }
                             }
                             else
@@ -1846,7 +1928,7 @@ namespace RBWStack
             Label lblProDesc = new Label();
             lblProDesc.Text = "RBWStack là giải pháp quản lý máy chủ PHP bỏ túi (Portable PHP Stack) siêu nhanh,\r\n" +
                                "được xây dựng dựa trên triết lý tối giản, gọn nhẹ và độ ổn định cao nhất.\r\n\r\n" +
-                               "• Phiên bản: v3.0.2 (RBW Pro Edition)\r\n" +
+                               "• Phiên bản: v3.1.0 (RBW Pro Edition)\r\n" +
                                "• Được tối ưu hóa cấu hình tự động (Nginx, Apache, PHP, MySQL, phpMyAdmin)\r\n" +
                                "• Hỗ trợ tải xuống và trích xuất offline tự động vượt tường lửa Akamai CDN.\r\n" +
                                "• Hệ thống quản lý Mutex thông minh ngăn chặn đụng độ tiến trình.\r\n\r\n" +
@@ -1959,7 +2041,24 @@ namespace RBWStack
                 UpdatePortsDisplay();
             }
 
-            if (pnlSidebar != null) pnlSidebar.BringToFront();
+            Panel activePanel = null;
+            if (tabName == "dashboard") activePanel = pnlTabDashboard;
+            else if (tabName == "download") activePanel = pnlTabDownload;
+            else if (tabName == "settings") activePanel = pnlTabSettings;
+            else if (tabName == "about") activePanel = pnlTabAbout;
+            else if (tabName == "placeholder") activePanel = pnlTabPlaceholder;
+            else if (tabName == "sites") activePanel = pnlTabSites;
+            else if (tabName == "mail") activePanel = pnlTabMail;
+            else if (tabName == "pro") activePanel = pnlTabPro;
+
+            if (activePanel != null)
+            {
+                activePanel.BringToFront();
+            }
+            if (pnlSidebar != null)
+            {
+                pnlSidebar.BringToFront();
+            }
         }
 
         private void FilterDownloadCards(string targetComponentName)
@@ -1999,7 +2098,14 @@ namespace RBWStack
             activeFilterComponentName = targetComponentName;
             RenderDownloadCards();
 
-            if (pnlSidebar != null) pnlSidebar.BringToFront();
+            if (pnlTabDownload != null)
+            {
+                pnlTabDownload.BringToFront();
+            }
+            if (pnlSidebar != null)
+            {
+                pnlSidebar.BringToFront();
+            }
         }
 
         private void ShowPlaceholderTab(string tabTitle, string tabDesc, string activeBtnName)
@@ -3977,7 +4083,8 @@ namespace RBWStack
             {
                 try
                 {
-                    string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
+                    string iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "assets", "app.ico");
+                    if (!File.Exists(iconPath)) iconPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "app.ico");
                     if (File.Exists(iconPath))
                         trayIcon.Icon = new Icon(iconPath);
                     else
@@ -4851,6 +4958,7 @@ namespace RBWStack
         {
             if (pnlCardsContainer == null) return;
 
+            pnlCardsContainer.AutoScrollPosition = new Point(0, 0);
             pnlCardsContainer.SuspendLayout();
             pnlCardsContainer.Controls.Clear();
 
@@ -4896,7 +5004,7 @@ namespace RBWStack
                 Label lblLoading = new Label();
                 lblLoading.Text = "⏳  ĐANG ĐỒNG BỘ PHIÊN BẢN MỚI NHẤT...";
                 lblLoading.ForeColor = colorText;
-                lblLoading.Font = new Font("Segoe UI Semibold", 10.5f, FontStyle.Bold);
+                lblLoading.Font = new Font("Segoe UI", 10.5f, FontStyle.Bold);
                 lblLoading.Location = new Point(20, 18);
                 lblLoading.AutoSize = true;
                 pnlLoadingCard.Controls.Add(lblLoading);
@@ -4904,7 +5012,7 @@ namespace RBWStack
                 Label lblLoadingDesc = new Label();
                 lblLoadingDesc.Text = "Hệ thống đang quét và đồng bộ dữ liệu phiên bản từ trang chủ dịch vụ, vui lòng chờ giây lát...";
                 lblLoadingDesc.ForeColor = colorTextDim;
-                lblLoadingDesc.Font = new Font("Segoe UI Italic", 8.5f);
+                lblLoadingDesc.Font = new Font("Segoe UI", 8.5f, FontStyle.Italic);
                 lblLoadingDesc.Location = new Point(20, 42);
                 lblLoadingDesc.AutoSize = true;
                 pnlLoadingCard.Controls.Add(lblLoadingDesc);
@@ -4930,12 +5038,13 @@ namespace RBWStack
                     pnlCard.BackColor = Color.Transparent;
                     pnlCard.Paint += DrawCardBorder;
                     pnlCardsContainer.Controls.Add(pnlCard);
+                    if (downloadScrollHelper != null) downloadScrollHelper.Attach(pnlCard);
                     ApplyRoundedRegion(pnlCard, 10);
 
                     Label lblName = new Label();
                     lblName.Text = opt.DisplayName;
                     lblName.ForeColor = colorText;
-                    lblName.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+                    lblName.Font = new Font("Segoe UI", 9.75f, FontStyle.Bold);
                     lblName.Location = new Point(15, 8);
                     lblName.AutoSize = true;
                     pnlCard.Controls.Add(lblName);
@@ -4950,7 +5059,7 @@ namespace RBWStack
                         lblDesc.Text = "Lưu tại: .\\" + row.BaseDestFolder + "\\" + opt.FolderName;
                     }
                     lblDesc.ForeColor = colorTextDim;
-                    lblDesc.Font = new Font("Segoe UI Italic", 8.25f);
+                    lblDesc.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
                     lblDesc.Location = new Point(15, 30);
                     lblDesc.AutoSize = true;
                     pnlCard.Controls.Add(lblDesc);
@@ -4972,25 +5081,25 @@ namespace RBWStack
                     }
 
                     ModernButton btnAction = new ModernButton();
-                    btnAction.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
+                    btnAction.Font = new Font("Segoe UI", 8.75f, FontStyle.Bold);
                     btnAction.Location = new Point(585, 14);
                     btnAction.Size = new Size(110, 32);
 
                     if (isInstalled)
                     {
-                        btnAction.Text = "✓ ĐÃ CÀI ĐẶT";
+                        btnAction.Text = "✓ Đã cài đặt";
                         btnAction.NormalColor = Color.FromArgb(240, 253, 244); // light green
-                        btnAction.BorderColor = Color.FromArgb(16, 185, 129); // emerald
-                        btnAction.ForeColor = Color.FromArgb(16, 185, 129); // emerald
+                        btnAction.BorderColor = Color.FromArgb(187, 247, 208); // soft emerald border
+                        btnAction.ForeColor = Color.FromArgb(22, 163, 74); // emerald-600
                         btnAction.Enabled = false;
                     }
                     else
                     {
-                        btnAction.Text = "CÀI ĐẶT";
+                        btnAction.Text = "Cài đặt";
                         btnAction.IconGlyph = "\uE896"; // Download
                         btnAction.NormalColor = Color.White;
                         btnAction.BorderColor = colorBorder;
-                        btnAction.ForeColor = Color.FromArgb(55, 65, 81);
+                        btnAction.ForeColor = Color.FromArgb(51, 65, 85);
                         
                         DownloadRow capturedRow = row;
                         VersionOption capturedOpt = opt;
@@ -5005,6 +5114,14 @@ namespace RBWStack
 
             pnlCardsContainer.ResumeLayout();
             pnlCardsContainer.Invalidate();
+            try
+            {
+                if (pnlCardsContainer.IsHandleCreated)
+                {
+                    SetWindowTheme(pnlCardsContainer.Handle, "Explorer", null);
+                }
+            }
+            catch { }
         }
 
         private void StartDownloadFlowForOption(DownloadRow row, VersionOption selectedOpt)
@@ -5844,6 +5961,7 @@ namespace RBWStack
                 const int CS_DBLCLKS = 0x8;
                 cp.Style |= WS_MINIMIZEBOX;
                 cp.ClassStyle |= CS_DBLCLKS;
+                cp.ExStyle |= 0x02000000; // WS_EX_COMPOSITED: Paints all descendants using double-buffering
                 return cp;
             }
         }
@@ -6385,8 +6503,8 @@ namespace RBWStack
             f.Controls.Add(lblTitle);
 
             Label lblVersion = new Label();
-            lblVersion.Text = string.Format("Phiên bản hiện tại: v3.0.2  →  Phiên bản mới: {0}", release.TagName);
-            lblVersion.Font = new Font("Segoe UI Semibold", 9.5f);
+            lblVersion.Text = string.Format("Phiên bản hiện tại: v3.1.0  →  Phiên bản mới: {0}", release.TagName);
+            lblVersion.Font = new Font("Segoe UI", 9.5f);
             lblVersion.ForeColor = colorText;
             lblVersion.Location = new Point(20, 60);
             lblVersion.Size = new Size(380, 20);
@@ -6394,7 +6512,7 @@ namespace RBWStack
 
             Label lblNotesTitle = new Label();
             lblNotesTitle.Text = "Nhật ký thay đổi:";
-            lblNotesTitle.Font = new Font("Segoe UI Italic", 9f);
+            lblNotesTitle.Font = new Font("Segoe UI", 9f, FontStyle.Italic);
             lblNotesTitle.ForeColor = colorTextDim;
             lblNotesTitle.Location = new Point(20, 95);
             lblNotesTitle.Size = new Size(380, 18);
@@ -6469,7 +6587,7 @@ namespace RBWStack
 
             Label lblProgress = new Label();
             lblProgress.Text = "🔄 Đang tải bản cập nhật mới...";
-            lblProgress.Font = new Font("Segoe UI Semibold", 10f);
+            lblProgress.Font = new Font("Segoe UI", 10f);
             lblProgress.ForeColor = colorText;
             lblProgress.Location = new Point(20, 20);
             lblProgress.Size = new Size(310, 20);
@@ -6877,18 +6995,18 @@ namespace RBWStack
             {
                 Label lblSitesTitle = new Label();
                 lblSitesTitle.Text = "QUẢN LÝ DỰ ÁN (SITES)";
-                lblSitesTitle.Font = new Font("Segoe UI", 12f, FontStyle.Bold);
+                lblSitesTitle.Font = new Font("Segoe UI", 11.5f, FontStyle.Bold);
                 lblSitesTitle.ForeColor = colorText;
-                lblSitesTitle.Location = new Point(20, 15);
+                lblSitesTitle.Location = new Point(20, 14);
                 lblSitesTitle.AutoSize = true;
                 pnlTabSites.Controls.Add(lblSitesTitle);
 
                 Label lblSitesDir = new Label();
                 lblSitesDir.Name = "lblSitesDir";
-                lblSitesDir.Font = new Font("Segoe UI Semibold", 8.5f);
+                lblSitesDir.Font = new Font("Segoe UI", 8.5f);
                 lblSitesDir.ForeColor = Color.FromArgb(59, 130, 246);
-                lblSitesDir.Location = new Point(220, 18);
-                lblSitesDir.Size = new Size(320, 20);
+                lblSitesDir.Location = new Point(220, 16);
+                lblSitesDir.Size = new Size(350, 20);
                 lblSitesDir.AutoEllipsis = true;
                 pnlTabSites.Controls.Add(lblSitesDir);
 
@@ -6898,7 +7016,7 @@ namespace RBWStack
                 btnChooseDir.NormalColor = Color.White;
                 btnChooseDir.BorderColor = colorBorder;
                 btnChooseDir.ForeColor = Color.FromArgb(75, 85, 99);
-                btnChooseDir.Location = new Point(550, 12);
+                btnChooseDir.Location = new Point(580, 10);
                 btnChooseDir.Size = new Size(130, 28);
                 btnChooseDir.Click += (s, e) => {
                     using (FolderBrowserDialog fbd = new FolderBrowserDialog())
@@ -6923,31 +7041,32 @@ namespace RBWStack
                 };
                 pnlTabSites.Controls.Add(btnChooseDir);
 
-                Label lblSitesDesc = new Label();
-                lblSitesDesc.Text = "Tất cả thư mục dự án PHP trong thư mục được chọn. Bạn có thể chọn phiên bản PHP riêng biệt cho từng dự án.";
-                lblSitesDesc.Font = new Font("Segoe UI Italic", 8.5f);
-                lblSitesDesc.ForeColor = colorTextDim;
-                lblSitesDesc.Location = new Point(20, 40);
-                lblSitesDesc.Size = new Size(680, 20);
-                pnlTabSites.Controls.Add(lblSitesDesc);
-
                 Panel pnlSearchSites = new Panel();
                 pnlSearchSites.Name = "pnlSearchSites";
-                pnlSearchSites.Location = new Point(30, 65);
-                pnlSearchSites.Size = new Size(700, 40);
+                pnlSearchSites.Location = new Point(20, 48);
+                pnlSearchSites.Size = new Size(690, 36);
                 pnlSearchSites.BackColor = Color.White;
                 pnlSearchSites.Paint += (s, pe) => {
-                    using (Pen pen = new Pen(colorBorder, 1.5f))
+                    using (Pen pen = new Pen(colorBorder, 1f))
                         pe.Graphics.DrawRectangle(pen, 0, 0, pnlSearchSites.Width - 1, pnlSearchSites.Height - 1);
                 };
                 pnlTabSites.Controls.Add(pnlSearchSites);
                 ApplyRoundedRegion(pnlSearchSites, 6);
 
+                Label lblSearchIcon = new Label();
+                lblSearchIcon.Text = "\uE721"; // Search icon
+                lblSearchIcon.Font = new Font("Segoe MDL2 Assets", 10f);
+                lblSearchIcon.ForeColor = Color.FromArgb(156, 163, 175);
+                lblSearchIcon.Location = new Point(10, 8);
+                lblSearchIcon.Size = new Size(20, 20);
+                lblSearchIcon.TextAlign = ContentAlignment.MiddleCenter;
+                pnlSearchSites.Controls.Add(lblSearchIcon);
+
                 TextBox txtSearchSites = new TextBox();
                 txtSearchSites.Name = "txtSearchSites";
-                txtSearchSites.Font = new Font("Segoe UI", 10f);
-                txtSearchSites.Location = new Point(10, 11);
-                txtSearchSites.Size = new Size(600, 20);
+                txtSearchSites.Font = new Font("Segoe UI", 9.5f);
+                txtSearchSites.Location = new Point(35, 9);
+                txtSearchSites.Size = new Size(640, 20);
                 txtSearchSites.BorderStyle = BorderStyle.None;
                 txtSearchSites.TextChanged += (s, e) => {
                     RenderSitesList();
@@ -6955,25 +7074,21 @@ namespace RBWStack
                 pnlSearchSites.Controls.Add(txtSearchSites);
                 SendCueMessage(txtSearchSites.Handle, 0x1501, 0, "Tìm kiếm dự án...");
 
-                ModernButton btnSearchSites = new ModernButton();
-                btnSearchSites.Text = "Tìm";
-                btnSearchSites.Size = new Size(70, 26);
-                btnSearchSites.Location = new Point(620, 7);
-                btnSearchSites.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
-                btnSearchSites.NormalColor = Color.FromArgb(139, 92, 246);
-                btnSearchSites.HoverColor = Color.FromArgb(124, 58, 237);
-                btnSearchSites.ForeColor = Color.White;
-                btnSearchSites.Click += (s, e) => {
-                    RenderSitesList();
-                };
-                pnlSearchSites.Controls.Add(btnSearchSites);
-
                 pnlSitesContainer = new Panel();
                 pnlSitesContainer.Name = "pnlSitesContainer";
-                pnlSitesContainer.Size = new Size(720, 430);
-                pnlSitesContainer.Location = new Point(20, 115);
+                pnlSitesContainer.Size = new Size(720, 455);
+                pnlSitesContainer.Location = new Point(20, 92);
                 pnlSitesContainer.BackColor = Color.Transparent;
                 pnlSitesContainer.AutoScroll = true;
+                pnlSitesContainer.HandleCreated += (s, e) => {
+                    try
+                    {
+                        SetWindowTheme(pnlSitesContainer.Handle, "Explorer", null);
+                        ShowScrollBar(pnlSitesContainer.Handle, 0, false);
+                    }
+                    catch { }
+                };
+                sitesScrollHelper = new SmoothScrollHelper(pnlSitesContainer);
                 pnlTabSites.Controls.Add(pnlSitesContainer);
             }
 
@@ -7015,6 +7130,7 @@ namespace RBWStack
                 }
             }
 
+            pnlSitesContainer.AutoScrollPosition = new Point(0, 0);
             pnlSitesContainer.SuspendLayout();
             pnlSitesContainer.Controls.Clear();
 
@@ -7048,6 +7164,7 @@ namespace RBWStack
                 }
             }
 
+            int currentY = 10;
             if (subDirs.Length == 0)
             {
                 Label lblEmpty = new Label();
@@ -7067,78 +7184,48 @@ namespace RBWStack
             }
             else
             {
-                int currentY = 10;
                 foreach (string dir in subDirs)
                 {
-                    string folderName = Path.GetFileName(dir);
-
-                    // Compute relative site path from www folder
-                    string relativeSitePath = "";
-                    if (dir.StartsWith(wwwDir, StringComparison.OrdinalIgnoreCase))
+                    try
                     {
-                        relativeSitePath = dir.Substring(wwwDir.Length).TrimStart('\\', '/').Replace('\\', '/');
-                    }
-                    else
-                    {
-                        relativeSitePath = folderName;
-                    }
-                    bool isRoot = activeRootProj.Equals(relativeSitePath, StringComparison.OrdinalIgnoreCase);
-                    string captureSitePath = relativeSitePath;
-
-                    Panel pnlCard = new Panel();
-                    pnlCard.Size = new Size(700, 48);
-                    pnlCard.Location = new Point(10, currentY);
-                    pnlCard.BackColor = Color.White;
-                    pnlCard.Paint += DrawCardBorder;
-                    pnlSitesContainer.Controls.Add(pnlCard);
-                    ApplyRoundedRegion(pnlCard, 6);
-
-                    // Load tunnels configuration
-                    Dictionary<string, string> tunnelsConfig = LoadTunnelsConfig();
-                    string currentSubdomain = SanitizeSubdomain(folderName);
-                    bool isTunnelActive = false;
-
-                    string mappedTunnel = "";
-                    if (tunnelsConfig.TryGetValue(relativeSitePath, out mappedTunnel))
-                    {
-                        string[] parts = mappedTunnel.Split('|');
-                        if (parts.Length >= 3)
+                        string folderName = Path.GetFileName(dir);
+                        if (folderName.Equals("cloudflare", StringComparison.OrdinalIgnoreCase) ||
+                            folderName.Equals("cloudflared", StringComparison.OrdinalIgnoreCase) ||
+                            folderName.Equals(".cloudflared", StringComparison.OrdinalIgnoreCase) ||
+                            folderName.IndexOf("cloudflare", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            if (!string.IsNullOrEmpty(parts[0])) currentSubdomain = parts[0];
-                            isTunnelActive = (parts[2] == "1");
+                            continue;
                         }
-                    }
-                    else
-                    {
-                        tunnelsConfig[relativeSitePath] = string.Format("{0}|https|0", currentSubdomain);
-                        SaveTunnelsConfig(tunnelsConfig);
-                    }
 
-                    // Dynamically calculate control positions based on tunnel state to maximize project name space
-                    int btnDeployX = 658;
-                    int btnUrlX, btnOpenX, btnTunnelX, btnTunnelUrlX, cbPhpX, lblNameWidth, btnSetRootX, btnVHostX;
-                    if (isTunnelActive)
-                    {
-                        btnTunnelUrlX = 622;
-                        btnTunnelX = 585;
-                        btnOpenX = 548;
-                        btnUrlX = 511;
-                        btnSetRootX = 474;
-                        btnVHostX = 437;
-                        cbPhpX = 303;
-                        lblNameWidth = 283;
-                    }
-                    else
-                    {
-                        btnTunnelUrlX = 0; // Hidden
-                        btnTunnelX = 622;
-                        btnOpenX = 585;
-                        btnUrlX = 548;
-                        btnSetRootX = 511;
-                        btnVHostX = 474;
-                        cbPhpX = 341;
-                        lblNameWidth = 320;
-                    }
+                        // Compute relative site path from www folder
+                        string relativeSitePath = "";
+                        if (dir.StartsWith(wwwDir, StringComparison.OrdinalIgnoreCase))
+                        {
+                            relativeSitePath = dir.Substring(wwwDir.Length).TrimStart('\\', '/').Replace('\\', '/');
+                        }
+                        else
+                        {
+                            relativeSitePath = folderName;
+                        }
+                        bool isRoot = activeRootProj.Equals(relativeSitePath, StringComparison.OrdinalIgnoreCase);
+                        string captureSitePath = relativeSitePath;
+
+                        Panel pnlCard = new Panel();
+                        pnlCard.Size = new Size(690, 48);
+                        pnlCard.Location = new Point(5, currentY);
+                        pnlCard.BackColor = Color.White;
+                        pnlCard.Paint += DrawCardBorder;
+                        pnlSitesContainer.Controls.Add(pnlCard);
+                        ApplyRoundedRegion(pnlCard, 6);
+
+                        // Balanced button positions (Cloudflare Tunnel hidden)
+                        int btnDeployX = 650;
+                        int btnOpenX = 614;
+                        int btnUrlX = 578;
+                        int btnSetRootX = 542;
+                        int btnVHostX = 506;
+                        int cbPhpX = 372;
+                        int lblNameWidth = 350;
 
                     ToolTip toolTip = new ToolTip();
 
@@ -7592,121 +7679,6 @@ namespace RBWStack
 
                     if (!isNodeProject)
                     {
-                        ModernButton btnTunnel = new ModernButton();
-                        btnTunnel.Size = new Size(32, 28);
-                        btnTunnel.Location = new Point(btnTunnelX, 10);
-                        btnTunnel.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
-                        btnTunnel.CornerRadius = 4;
-                        btnTunnel.BorderColor = colorBorder;
-
-                        ModernButton btnTunnelUrl = new ModernButton();
-                        btnTunnelUrl.Size = new Size(32, 28);
-                        btnTunnelUrl.Location = new Point(btnTunnelUrlX, 10);
-                        btnTunnelUrl.Text = "🔗";
-                        btnTunnelUrl.Font = new Font("Segoe UI", 10f);
-                        btnTunnelUrl.NormalColor = Color.White;
-                        btnTunnelUrl.BorderColor = colorBorder;
-                        btnTunnelUrl.ForeColor = Color.FromArgb(16, 185, 129);
-                        btnTunnelUrl.Visible = false;
-
-                        if (isTunnelActive)
-                        {
-                            btnTunnel.Text = "⏹";
-                            btnTunnel.NormalColor = Color.FromArgb(239, 68, 68);
-                            btnTunnel.HoverColor = Color.FromArgb(220, 38, 38);
-                            btnTunnel.ForeColor = Color.White;
-
-                            string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
-                            btnTunnelUrl.Visible = true;
-                            btnTunnelUrl.Click += (s, e) => {
-                                try { Process.Start(tunnelLink); } catch { }
-                            };
-                            toolTip.SetToolTip(btnTunnel, "Dừng Cloudflare Tunnel");
-                            toolTip.SetToolTip(btnTunnelUrl, "Mở Cloudflare Tunnel link: " + tunnelLink);
-                        }
-                        else
-                        {
-                            btnTunnel.Text = "☁";
-                            btnTunnel.NormalColor = Color.White;
-                            btnTunnel.HoverColor = Color.FromArgb(243, 244, 246);
-                            btnTunnel.ForeColor = Color.FromArgb(59, 130, 246);
-                            btnTunnelUrl.Visible = false;
-                            toolTip.SetToolTip(btnTunnel, "Kích hoạt Cloudflare Tunnel");
-                        }
-
-                        btnTunnel.Click += (s, e) => {
-                            Dictionary<string, string> currTunnels = LoadTunnelsConfig();
-                            string mapped = "";
-                            bool isActive = false;
-                            if (currTunnels.TryGetValue(captureSitePath, out mapped))
-                            {
-                                string[] p = mapped.Split('|');
-                                if (p.Length >= 3) isActive = (p[2] == "1");
-                            }
-
-                            if (isActive)
-                            {
-                                StopTunnelProcess(captureSitePath);
-                                currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
-                                SaveTunnelsConfig(currTunnels);
-                                RestartWebServicesAndPhp();
-                                RenderSitesList();
-                            }
-                            else
-                            {
-                                btnTunnel.Text = "⏳";
-                                btnTunnel.Enabled = false;
-                                StartTunnelProcess(captureSitePath);
-                            }
-                        };
-                        pnlCard.Controls.Add(btnTunnel);
-                        pnlCard.Controls.Add(btnTunnelUrl);
-
-                        ContextMenuStrip menuTunnel = new ContextMenuStrip();
-                        string tunnelToggle = isTunnelActive ? "Dừng Cloudflare Tunnel" : "Kích hoạt Cloudflare Tunnel";
-                        menuTunnel.Items.Add(tunnelToggle, null, (s, e) => {
-                            Dictionary<string, string> currTunnels = LoadTunnelsConfig();
-                            string mapped = "";
-                            bool isActive = false;
-                            if (currTunnels.TryGetValue(captureSitePath, out mapped))
-                            {
-                                string[] p = mapped.Split('|');
-                                if (p.Length >= 3) isActive = (p[2] == "1");
-                            }
-
-                            if (isActive)
-                            {
-                                StopTunnelProcess(captureSitePath);
-                                currTunnels[captureSitePath] = string.Format("{0}|https|0", currentSubdomain);
-                                SaveTunnelsConfig(currTunnels);
-                                RestartWebServicesAndPhp();
-                                RenderSitesList();
-                            }
-                            else
-                            {
-                                btnTunnel.Text = "⏳";
-                                btnTunnel.Enabled = false;
-                                StartTunnelProcess(captureSitePath);
-                            }
-                        });
-                        if (isTunnelActive)
-                        {
-                            string tunnelLink = string.Format("https://{0}.trycloudflare.com", currentSubdomain);
-                            menuTunnel.Items.Add("Mở liên kết Tunnel", null, (s, e) => {
-                                try { Process.Start(tunnelLink); } catch { }
-                            });
-                            menuTunnel.Items.Add("Sao chép liên kết Tunnel", null, (s, e) => {
-                                try { Clipboard.SetText(tunnelLink); } catch { }
-                            });
-                        }
-                        btnTunnel.ContextMenuStrip = menuTunnel;
-                        btnTunnel.MouseUp += (s, me) => {
-                            if (me.Button == MouseButtons.Right) { menuTunnel.Show(btnTunnel, me.Location); }
-                        };
-                    }
-
-                    if (!isNodeProject)
-                    {
                         // --- Nut Deploy Demo ---
                         string captureDir2 = dir;
                         string captureSiteDeploy2 = captureSitePath;
@@ -7763,12 +7735,25 @@ namespace RBWStack
                         };
                     }
 
+                    if (sitesScrollHelper != null) sitesScrollHelper.Attach(pnlCard);
                     currentY += 56;
+                    }
+                    catch { }
                 }
             }
 
+            pnlSitesContainer.AutoScrollMinSize = new Size(0, currentY + 10);
             pnlSitesContainer.ResumeLayout();
             pnlSitesContainer.Invalidate();
+            try
+            {
+                if (pnlSitesContainer.IsHandleCreated)
+                {
+                    SetWindowTheme(pnlSitesContainer.Handle, "Explorer", null);
+                    ShowScrollBar(pnlSitesContainer.Handle, 0, false);
+                }
+            }
+            catch { }
         }
 
         protected override void OnHandleCreated(EventArgs e)

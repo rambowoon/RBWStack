@@ -78,7 +78,7 @@ namespace RBWStack
             btnClose = new Label();
             btnClose.Text = "×";
             btnClose.ForeColor = colorTextDim;
-            btnClose.Font = new Font("Segoe UI Semibold", 20f);
+            btnClose.Font = new Font("Segoe UI", 20f);
             btnClose.Cursor = Cursors.Hand;
             btnClose.Size = new Size(35, 35);
             btnClose.Location = new Point(580, 5);
@@ -139,7 +139,7 @@ namespace RBWStack
 
                 Label lblDesc = new Label();
                 lblDesc.ForeColor = colorTextDim;
-                lblDesc.Font = new Font("Segoe UI Italic", 8.25f);
+                lblDesc.Font = new Font("Segoe UI", 8.25f, FontStyle.Italic);
                 lblDesc.Location = new Point(210, 32);
                 lblDesc.Size = new Size(240, 20);
                 row.LabelDesc = lblDesc;
@@ -182,7 +182,7 @@ namespace RBWStack
             lblStatusText = new Label();
             lblStatusText.Text = "Đang quét các phiên bản mới nhất trực tuyến...";
             lblStatusText.ForeColor = colorText;
-            lblStatusText.Font = new Font("Segoe UI Semibold", 9.25f);
+            lblStatusText.Font = new Font("Segoe UI", 9.25f);
             lblStatusText.Location = new Point(15, 15);
             lblStatusText.Size = new Size(550, 20);
             pnlProgress.Controls.Add(lblStatusText);

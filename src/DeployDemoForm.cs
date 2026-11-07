@@ -3,6 +3,8 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Collections.Generic;
@@ -86,12 +88,17 @@ namespace RBWStack
             _pnlHeader = new Panel();
             _pnlHeader.Location = new Point(0, 0);
             _pnlHeader.Size = new Size(600, 40);
-            _pnlHeader.BackColor = Color.FromArgb(241, 245, 249); // Slate 100
+            _pnlHeader.BackColor = Color.White;
             _pnlHeader.Paint += (s, pe) => {
-                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                pe.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 using (Font font = new Font("Segoe UI", 9.5f, FontStyle.Bold))
-                using (SolidBrush br = new SolidBrush(colorPurple))
-                    pe.Graphics.DrawString("⚡  DEPLOY DEMO HOSTING", font, br, new PointF(14f, 11f)); // Dùng sấm sét ⚡ an toàn, không lỗi ô vuông
+                using (SolidBrush brIcon = new SolidBrush(colorPurple))
+                using (SolidBrush brText = new SolidBrush(Color.FromArgb(30, 41, 59)))
+                {
+                    pe.Graphics.DrawString("⚡", font, brIcon, new PointF(14f, 10f));
+                    pe.Graphics.DrawString("DEPLOY DEMO HOSTING", font, brText, new PointF(34f, 10f));
+                }
                 using (Pen pen = new Pen(colorBorder, 1f))
                     pe.Graphics.DrawLine(pen, 0, 39, 600, 39);
             };
@@ -116,6 +123,24 @@ namespace RBWStack
             _btnClose.MouseEnter += (s, e) => { _btnClose.ForeColor = Color.White; _btnClose.BackColor = colorRed; };
             _btnClose.MouseLeave += (s, e) => { _btnClose.ForeColor = colorDim; _btnClose.BackColor = Color.Transparent; };
             _pnlHeader.Controls.Add(_btnClose);
+
+            Label btnHelp = new Label();
+            btnHelp.Text = "❓";
+            btnHelp.Font = new Font("Segoe UI", 10.5f);
+            btnHelp.ForeColor = colorDim;
+            btnHelp.Location = new Point(535, 8);
+            btnHelp.Size = new Size(26, 24);
+            btnHelp.TextAlign = ContentAlignment.MiddleCenter;
+            btnHelp.Cursor = Cursors.Hand;
+            var ttHelp = new ToolTip();
+            ttHelp.SetToolTip(btnHelp, "Xem hướng dẫn cấu hình & khắc phục lỗi Deploy Demo");
+            btnHelp.Click += (s, e) => {
+                var helpForm = new DeployHelpForm();
+                helpForm.ShowDialog(this);
+            };
+            btnHelp.MouseEnter += (s, e) => { btnHelp.ForeColor = colorPurple; };
+            btnHelp.MouseLeave += (s, e) => { btnHelp.ForeColor = colorDim; };
+            _pnlHeader.Controls.Add(btnHelp);
 
             // ── CONFIG PANEL (Top UI) ───────────────────────────────────
             _pnlConfig = new Panel();
@@ -169,7 +194,7 @@ namespace RBWStack
             // ── STATUS & BUTTONS (Bottom UI) ────────────────────────────
             _lblApiStatus = new Label();
             _lblApiStatus.Text = "Sẵn sàng deploy";
-            _lblApiStatus.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _lblApiStatus.Font = new Font("Segoe UI", 9f);
             _lblApiStatus.ForeColor = colorDim;
             _lblApiStatus.Location = new Point(15, 425);
             _lblApiStatus.Size = new Size(175, 25);
@@ -178,7 +203,7 @@ namespace RBWStack
 
             _btnDeploy = new ModernButton();
             _btnDeploy.Text = "Deploy";
-            _btnDeploy.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnDeploy.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnDeploy.NormalColor = colorPurple;
             _btnDeploy.HoverColor = Color.FromArgb(124, 58, 237);
             _btnDeploy.PressedColor = Color.FromArgb(109, 40, 217);
@@ -191,7 +216,7 @@ namespace RBWStack
             this.Controls.Add(_btnDeploy);
 
             _btnLockToggle = new ModernButton();
-            _btnLockToggle.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnLockToggle.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnLockToggle.CornerRadius = 6;
             _btnLockToggle.Location = new Point(328, 422);
             _btnLockToggle.Size = new Size(125, 32);
@@ -210,7 +235,7 @@ namespace RBWStack
 
             _btnOpenWeb = new ModernButton();
             _btnOpenWeb.Text = "🌐 Vào Web";
-            _btnOpenWeb.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnOpenWeb.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnOpenWeb.NormalColor = colorGreen;
             _btnOpenWeb.HoverColor = Color.FromArgb(52, 211, 153);
             _btnOpenWeb.PressedColor = Color.FromArgb(5, 150, 105);
@@ -230,7 +255,7 @@ namespace RBWStack
 
             _btnDeployFresh = new ModernButton();
             _btnDeployFresh.Text = "Chỉ Database";
-            _btnDeployFresh.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnDeployFresh.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnDeployFresh.NormalColor = Color.White;
             _btnDeployFresh.HoverColor = Color.FromArgb(240, 253, 244);
             _btnDeployFresh.PressedColor = Color.FromArgb(220, 252, 231);
@@ -244,7 +269,7 @@ namespace RBWStack
 
             _btnCleanup = new ModernButton();
             _btnCleanup.Text = "Dọn dẹp";
-            _btnCleanup.Font = new Font("Segoe UI Semibold", 9f, FontStyle.Bold);
+            _btnCleanup.Font = new Font("Segoe UI", 9f, FontStyle.Bold);
             _btnCleanup.NormalColor = Color.White;
             _btnCleanup.HoverColor = Color.FromArgb(254, 242, 242);
             _btnCleanup.PressedColor = Color.FromArgb(254, 226, 226);
@@ -271,7 +296,7 @@ namespace RBWStack
             var lbl = new Label();
             lbl.Text = "Tên Database muốn thay đổi (Thay cho database sinh tự động)";
             lbl.ForeColor = labelColor;
-            lbl.Font = new Font("Segoe UI Semibold", 8f, FontStyle.Bold);
+            lbl.Font = new Font("Segoe UI", 8.5f, FontStyle.Bold);
             lbl.Location = new Point(20, 16);
             lbl.Size = new Size(350, 15);
             _pnlConfig.Controls.Add(lbl);
@@ -341,13 +366,14 @@ namespace RBWStack
             // SSL custom toggle
             bool sslChecked = false;
             Panel pnlSslToggle = new Panel();
-            pnlSslToggle.Location = new Point(370, 24);
-            pnlSslToggle.Size = new Size(180, 24);
+            pnlSslToggle.Location = new Point(365, 24);
+            pnlSslToggle.Size = new Size(195, 24);
             pnlSslToggle.BackColor = Color.Transparent;
             pnlSslToggle.Cursor = Cursors.Hand;
             pnlSslToggle.Paint += (s, pe) =>
             {
-                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                pe.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 Color track = sslChecked ? colorPurple : Color.FromArgb(203, 213, 225);
                 using (var br = new SolidBrush(track))
                 using (var path = GetRoundedRect(new Rectangle(0, 4, 38, 16), 8))
@@ -355,9 +381,9 @@ namespace RBWStack
                 int kx = sslChecked ? 21 : 4;
                 using (var br = new SolidBrush(Color.White))
                     pe.Graphics.FillEllipse(br, kx, 6, 12, 12);
-                using (var font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold))
-                using (var br = new SolidBrush(Color.FromArgb(71, 85, 105)))
-                    pe.Graphics.DrawString("Kích hoạt SSL (https)", font, br, new PointF(44f, 4f));
+                using (var font = new Font("Segoe UI", 9f, FontStyle.Regular))
+                using (var br = new SolidBrush(Color.FromArgb(55, 65, 81)))
+                    pe.Graphics.DrawString("Kích hoạt SSL (https)", font, br, new PointF(44f, 3.5f));
             };
             pnlSslToggle.Click += (s, e) =>
             {
@@ -368,13 +394,14 @@ namespace RBWStack
             _pnlConfig.Controls.Add(pnlSslToggle);
 
             Panel pnlOnlyDbToggle = new Panel();
-            pnlOnlyDbToggle.Location = new Point(370, 56);
-            pnlOnlyDbToggle.Size = new Size(180, 24);
+            pnlOnlyDbToggle.Location = new Point(365, 54);
+            pnlOnlyDbToggle.Size = new Size(195, 24);
             pnlOnlyDbToggle.BackColor = Color.Transparent;
             pnlOnlyDbToggle.Cursor = Cursors.Hand;
             pnlOnlyDbToggle.Paint += (s, pe) =>
             {
-                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                pe.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 Color track = _onlyDbChecked ? colorPurple : Color.FromArgb(203, 213, 225);
                 using (var br = new SolidBrush(track))
                 using (var path = GetRoundedRect(new Rectangle(0, 4, 38, 16), 8))
@@ -382,9 +409,9 @@ namespace RBWStack
                 int kx = _onlyDbChecked ? 21 : 4;
                 using (var br = new SolidBrush(Color.White))
                     pe.Graphics.FillEllipse(br, kx, 6, 12, 12);
-                using (var font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold))
-                using (var br = new SolidBrush(Color.FromArgb(71, 85, 105)))
-                    pe.Graphics.DrawString("Chỉ deploy Database", font, br, new PointF(44f, 4f));
+                using (var font = new Font("Segoe UI", 9f, FontStyle.Regular))
+                using (var br = new SolidBrush(Color.FromArgb(55, 65, 81)))
+                    pe.Graphics.DrawString("Chỉ deploy Database", font, br, new PointF(44f, 3.5f));
             };
             pnlOnlyDbToggle.Click += (s, e) =>
             {
@@ -400,13 +427,14 @@ namespace RBWStack
 
             // 7-Zip custom toggle
             Panel pnl7zToggle = new Panel();
-            pnl7zToggle.Location = new Point(370, 84);
-            pnl7zToggle.Size = new Size(180, 24);
+            pnl7zToggle.Location = new Point(365, 82);
+            pnl7zToggle.Size = new Size(195, 24);
             pnl7zToggle.BackColor = Color.Transparent;
             pnl7zToggle.Cursor = Cursors.Hand;
             pnl7zToggle.Paint += (s, pe) =>
             {
-                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                pe.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 Color track = _use7zipChecked ? colorPurple : Color.FromArgb(203, 213, 225);
                 using (var br = new SolidBrush(track))
                 using (var path = GetRoundedRect(new Rectangle(0, 4, 38, 16), 8))
@@ -414,9 +442,9 @@ namespace RBWStack
                 int kx = _use7zipChecked ? 21 : 4;
                 using (var br = new SolidBrush(Color.White))
                     pe.Graphics.FillEllipse(br, kx, 6, 12, 12);
-                using (var font = new Font("Segoe UI Semibold", 8.5f, FontStyle.Bold))
-                using (var br = new SolidBrush(Color.FromArgb(71, 85, 105)))
-                    pe.Graphics.DrawString("Nén bằng 7-Zip", font, br, new PointF(44f, 4f));
+                using (var font = new Font("Segoe UI", 9f, FontStyle.Regular))
+                using (var br = new SolidBrush(Color.FromArgb(55, 65, 81)))
+                    pe.Graphics.DrawString("Nén bằng 7-Zip", font, br, new PointF(44f, 3.5f));
             };
             pnl7zToggle.Click += (s, e) =>
             {
@@ -434,9 +462,9 @@ namespace RBWStack
             Label lblHint = new Label();
             lblHint.Text = "* Để trống tên Database nếu muốn sử dụng tên mặc định theo chuẩn.";
             lblHint.ForeColor = colorDim;
-            lblHint.Font = new Font("Segoe UI Italic", 8f);
+            lblHint.Font = new Font("Segoe UI", 8.25f, FontStyle.Italic);
             lblHint.Location = new Point(20, 76);
-            lblHint.Size = new Size(320, 18);
+            lblHint.Size = new Size(335, 18);
             _pnlConfig.Controls.Add(lblHint);
         }
 
@@ -800,6 +828,24 @@ namespace RBWStack
                 
                 string zipPath = Path.Combine(tempDir, "dist_" + jobId + ".zip");
                 string sqlPath = Path.Combine(tempDir, "dist_" + jobId + ".sql");
+
+                // Cảnh báo sớm nếu ftpRoot và webDomain bị lệch tên miền
+                if (!string.IsNullOrEmpty(webDomain) && ftpRoot.IndexOf("/domains/", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    var matchDomain = System.Text.RegularExpressions.Regex.Match(ftpRoot, @"/domains/([^/]+)/?", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    if (matchDomain.Success)
+                    {
+                        string rootDomain = matchDomain.Groups[1].Value.Trim();
+                        if (!string.Equals(rootDomain, webDomain, StringComparison.OrdinalIgnoreCase) && !rootDomain.Contains("{domain}"))
+                        {
+                            AppendLog("⚠️ CẢNH BÁO LỆCH DOMAIN:", colorOrange);
+                            AppendLog("   - Thư mục FTP đang trỏ vào: " + rootDomain, colorOrange);
+                            AppendLog("   - Nhưng Web Domain lại đang là: " + webDomain, colorOrange);
+                            AppendLog("   => Nếu không sửa, quá trình kích hoạt bridge sẽ bị lỗi (404) Not Found!", colorOrange);
+                            AppendLog("   💡 Khắc phục: Vào Cài đặt -> Đặt 'FTP ROOT PATH' là: /domains/{domain}/public_html", colorGreen);
+                        }
+                    }
+                }
 
                 try {
                     // Step 1: Zip local source if NOT only DB
@@ -1363,8 +1409,20 @@ namespace RBWStack
                     {
                         int bridgeResLen = (bridgeRes != null) ? bridgeRes.Length : 0;
                         string bridgeResShort = (bridgeResLen > 300) ? bridgeRes.Substring(0, 300) : (bridgeRes ?? "(no response)");
-                        AppendLog("⚠️ Bridge response: " + bridgeResShort, Color.FromArgb(245, 158, 11));
-                        AppendLog("💡 Hãy kiểm tra lại URL domain và cấu hình FTP/DA.", colorDim);
+                        AppendLog("❌ Bridge response: " + bridgeResShort, colorRed);
+
+                        if (bridgeRes != null && (bridgeRes.Contains("404") || bridgeRes.Contains("Not Found")))
+                        {
+                            AppendLog("⚠️ NGUYÊN NHÂN LỖI 404: Web server không tìm thấy tệp bridge.php tại URL!", colorRed);
+                            AppendLog("   • Thư mục FTP upload: " + ftpBase, colorOrange);
+                            AppendLog("   • URL Web kích hoạt:  " + bridgeUrl, colorOrange);
+                            AppendLog("💡 CÁCH SỬA: Vào Cài đặt (General) -> Đặt 'FTP ROOT PATH' là: /domains/{domain}/public_html để tự động khớp với WEB DOMAIN.", colorGreen);
+                            AppendLog("   (Nhấp vào nút ❓ ở góc trên bên phải để xem hướng dẫn chi tiết)", colorDim);
+                        }
+                        else
+                        {
+                            AppendLog("💡 Hãy kiểm tra lại URL domain và cấu hình FTP/DA.", colorDim);
+                        }
                         FinishDeploy(false);
                     }
                 } catch (Exception ex) {

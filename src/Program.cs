@@ -21,6 +21,9 @@ namespace RBWStack
         [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern uint RegisterWindowMessage(string lpString);
 
+        [DllImport("user32.dll")]
+        private static extern bool SetProcessDPIAware();
+
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool PostMessage(IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
 
@@ -55,6 +58,7 @@ namespace RBWStack
         [STAThread]
         static void Main()
         {
+            try { SetProcessDPIAware(); } catch { }
             ConfigHelper.MigrateFilesToDataFolder();
             string baseDir = AppDomain.CurrentDomain.BaseDirectory.ToLower().TrimEnd('\\', '/');
             string cleanPath = Regex.Replace(baseDir, @"[^a-zA-Z0-9]", "_");

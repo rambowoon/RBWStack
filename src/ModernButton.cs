@@ -55,7 +55,7 @@ namespace RBWStack
         public int CornerRadius
         {
             get { return _cornerRadius; }
-            set { _cornerRadius = value; Invalidate(); }
+            set { _cornerRadius = value; UpdateRegion(); Invalidate(); }
         }
 
         public string IconGlyph
@@ -86,10 +86,40 @@ namespace RBWStack
 
             FlatStyle = FlatStyle.Flat;
             FlatAppearance.BorderSize = 0;
-            ForeColor = Color.FromArgb(55, 65, 81); // Gray-700
-            Font = new Font("Segoe UI", 9f, FontStyle.Regular);
+            FlatAppearance.BorderColor = Color.FromArgb(0, 255, 255, 255);
+            FlatAppearance.MouseDownBackColor = Color.Transparent;
+            FlatAppearance.MouseOverBackColor = Color.Transparent;
+            ForeColor = Color.FromArgb(51, 65, 85); // Slate-700
+            Font = new Font("Segoe UI", 9.25f, FontStyle.Regular);
             Cursor = Cursors.Hand;
             Size = new Size(80, 28);
+            UpdateRegion();
+        }
+
+        private void UpdateRegion()
+        {
+            if (_cornerRadius > 0 && Width > 0 && Height > 0)
+            {
+                using (var path = GetRoundedRectPath(new Rectangle(0, 0, Width, Height), _cornerRadius))
+                {
+                    this.Region = new Region(path);
+                }
+            }
+            else
+            {
+                this.Region = null;
+            }
+        }
+
+        protected override void OnSizeChanged(EventArgs e)
+        {
+            base.OnSizeChanged(e);
+            UpdateRegion();
+        }
+
+        protected override void OnPaintBackground(PaintEventArgs pevent)
+        {
+            // Fully suppress base button background rendering to avoid border/corner artifacts
         }
 
         protected override void OnParentChanged(EventArgs e)
@@ -158,7 +188,18 @@ namespace RBWStack
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
             // Clear background with resolved parent backcolor
-            using (SolidBrush parentBgBrush = new SolidBrush(BackColor))
+            Color parentBg = Color.White;
+            Control parentCtrl = Parent;
+            while (parentCtrl != null)
+            {
+                if (parentCtrl.BackColor != Color.Transparent && parentCtrl.BackColor.A == 255)
+                {
+                    parentBg = parentCtrl.BackColor;
+                    break;
+                }
+                parentCtrl = parentCtrl.Parent;
+            }
+            using (SolidBrush parentBgBrush = new SolidBrush(parentBg))
             {
                 g.FillRectangle(parentBgBrush, ClientRectangle);
             }
@@ -170,7 +211,7 @@ namespace RBWStack
 
             if (_isSelected)
             {
-                currentBg = Color.FromArgb(243, 244, 246); // Subtle select Gray-100
+                currentBg = Color.FromArgb(236, 253, 245); // Soft Emerald-50 tint
             }
             else if (isPressed)
             {
@@ -178,7 +219,7 @@ namespace RBWStack
             }
             else if (isHovered)
             {
-                currentBg = _hoverColor;
+                currentBg = Color.FromArgb(241, 245, 249); // Soft Slate-100 hover
             }
 
             if (!Enabled)
@@ -186,21 +227,37 @@ namespace RBWStack
                 currentBg = Color.FromArgb(249, 250, 251);
             }
 
-            // Fill rounded background
-            using (System.Drawing.Drawing2D.GraphicsPath path = GetRoundedRectPath(new Rectangle(0, 0, Width - 1, Height - 1), _cornerRadius))
+            // Fill background & draw border
+            if (_cornerRadius == 0)
             {
                 using (SolidBrush brush = new SolidBrush(currentBg))
                 {
-                    g.FillPath(brush, path);
+                    g.FillRectangle(brush, ClientRectangle);
                 }
-
-                // Draw border outline
                 if (_borderColor != Color.Transparent && _borderColor.A > 0 && Enabled)
                 {
                     using (Pen pen = new Pen(_borderColor, 1.0f))
                     {
-                        pen.Alignment = System.Drawing.Drawing2D.PenAlignment.Inset;
-                        g.DrawPath(pen, path);
+                        g.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+                    }
+                }
+            }
+            else
+            {
+                using (System.Drawing.Drawing2D.GraphicsPath path = GetRoundedRectPath(new Rectangle(0, 0, Width - 1, Height - 1), _cornerRadius))
+                {
+                    using (SolidBrush brush = new SolidBrush(currentBg))
+                    {
+                        g.FillPath(brush, path);
+                    }
+
+                    // Draw border outline
+                    if (_borderColor != Color.Transparent && _borderColor.A > 0 && Enabled)
+                    {
+                        using (Pen pen = new Pen(_borderColor, 1.0f))
+                        {
+                            g.DrawPath(pen, path);
+                        }
                     }
                 }
             }
@@ -210,39 +267,74 @@ namespace RBWStack
             {
                 using (SolidBrush indicatorBrush = new SolidBrush(_selectedIndicatorColor))
                 {
-                    g.FillRectangle(indicatorBrush, 0, 0, 4, Height);
+                    g.FillRectangle(indicatorBrush, 0, 4, 3, Height - 8);
+                }
+            }
+            else if (_isHovered && !_isSelected && _cornerRadius == 0)
+            {
+                using (SolidBrush hoverBarBrush = new SolidBrush(Color.FromArgb(203, 213, 225)))
+                {
+                    g.FillRectangle(hoverBarBrush, 0, 8, 2, Height - 16);
                 }
             }
 
-            Color textCol = Enabled ? ForeColor : Color.FromArgb(156, 163, 175);
+            Color textCol = Enabled 
+                ? (_isSelected ? Color.FromArgb(6, 95, 70) 
+                   : (_isHovered ? Color.FromArgb(15, 23, 42) 
+                   : ForeColor)) 
+                : Color.FromArgb(156, 163, 175);
 
-            // Draw icon and text
-            if (!string.IsNullOrEmpty(_iconGlyph))
+            Font textDrawFont = Font;
+            bool createdFont = false;
+            if (_isSelected && Font.Style != FontStyle.Bold)
             {
-                using (Font iconFont = new Font("Segoe MDL2 Assets", 9.5f))
-                {
-                    TextFormatFlags iconFlags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter;
-                    Rectangle iconRect = new Rectangle(14, 0, 20, Height);
-                    TextRenderer.DrawText(g, _iconGlyph, iconFont, iconRect, textCol, iconFlags);
-                }
-
-                TextFormatFlags textFlags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
-                Rectangle textRect = new Rectangle(38, 0, Width - 40, Height);
-                TextRenderer.DrawText(g, Text, Font, textRect, textCol, textFlags);
+                try { textDrawFont = new Font(Font.FontFamily, Font.Size, FontStyle.Bold); createdFont = true; } catch { }
             }
-            else
+
+            try
             {
-                TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
-                if (TextAlign == ContentAlignment.MiddleLeft)
+                // Draw icon and text
+                if (!string.IsNullOrEmpty(_iconGlyph))
                 {
-                    flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
-                    Rectangle paddedRect = new Rectangle(Padding.Left > 0 ? Padding.Left : 8, Padding.Top, Width - Padding.Horizontal, Height - Padding.Vertical);
-                    TextRenderer.DrawText(g, Text, Font, paddedRect, textCol, flags);
+                    Color iconCol = Enabled 
+                        ? (_isSelected ? Color.FromArgb(16, 185, 129) 
+                           : (_isHovered ? Color.FromArgb(14, 165, 233) 
+                           : Color.FromArgb(100, 116, 139))) 
+                        : Color.FromArgb(160, 170, 185);
+
+                    var oldHint = g.TextRenderingHint;
+                    g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAlias;
+                    using (Font iconFont = new Font("Segoe MDL2 Assets", 11.5f, FontStyle.Regular))
+                    using (SolidBrush iconBrush = new SolidBrush(iconCol))
+                    using (StringFormat sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center })
+                    {
+                        RectangleF iconRect = new RectangleF(12f, 0, 20, Height);
+                        g.DrawString(_iconGlyph, iconFont, iconBrush, iconRect, sf);
+                    }
+                    g.TextRenderingHint = oldHint;
+
+                    TextFormatFlags textFlags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
+                    Rectangle textRect = new Rectangle(38, 0, Width - 40, Height);
+                    TextRenderer.DrawText(g, Text, textDrawFont, textRect, textCol, textFlags);
                 }
                 else
                 {
-                    TextRenderer.DrawText(g, Text, Font, ClientRectangle, textCol, flags);
+                    TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
+                    if (TextAlign == ContentAlignment.MiddleLeft)
+                    {
+                        flags = TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis;
+                        Rectangle paddedRect = new Rectangle(Padding.Left > 0 ? Padding.Left : 8, Padding.Top, Width - Padding.Horizontal, Height - Padding.Vertical);
+                        TextRenderer.DrawText(g, Text, textDrawFont, paddedRect, textCol, flags);
+                    }
+                    else
+                    {
+                        TextRenderer.DrawText(g, Text, textDrawFont, ClientRectangle, textCol, flags);
+                    }
                 }
+            }
+            finally
+            {
+                if (createdFont && textDrawFont != null) textDrawFont.Dispose();
             }
         }
 
@@ -261,6 +353,68 @@ namespace RBWStack
             path.AddArc(rect.X, rect.Bottom - d, d, d, 90, 90);
             path.CloseFigure();
             return path;
+        }
+    }
+
+    public class SmoothScrollHelper
+    {
+        private readonly Panel _panel;
+        private readonly System.Windows.Forms.Timer _timer;
+        private int _targetY = 0;
+        private int _currentY = 0;
+
+        public SmoothScrollHelper(Panel panel)
+        {
+            _panel = panel;
+            _panel.MouseWheel += HandleMouseWheel;
+            _timer = new System.Windows.Forms.Timer { Interval = 15 };
+            _timer.Tick += Timer_Tick;
+        }
+
+        public void Attach(Control control)
+        {
+            if (control == null) return;
+            control.MouseWheel -= HandleMouseWheel;
+            control.MouseWheel += HandleMouseWheel;
+            foreach (Control child in control.Controls)
+            {
+                Attach(child);
+            }
+        }
+
+        private void HandleMouseWheel(object sender, MouseEventArgs e)
+        {
+            HandledMouseEventArgs hme = e as HandledMouseEventArgs;
+            if (hme != null) hme.Handled = true;
+
+            int max = _panel.VerticalScroll.Maximum - _panel.ClientRectangle.Height;
+            if (max <= 0) return;
+
+            if (!_timer.Enabled)
+            {
+                _currentY = -_panel.AutoScrollPosition.Y;
+                _targetY = _currentY;
+            }
+
+            int step = -(e.Delta / 120) * 65;
+            _targetY = Math.Max(0, Math.Min(max, _targetY + step));
+            _timer.Start();
+        }
+
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            int diff = _targetY - _currentY;
+            if (Math.Abs(diff) <= 2)
+            {
+                _currentY = _targetY;
+                _panel.AutoScrollPosition = new Point(0, _currentY);
+                _timer.Stop();
+            }
+            else
+            {
+                _currentY += (int)Math.Round(diff * 0.32);
+                _panel.AutoScrollPosition = new Point(0, _currentY);
+            }
         }
     }
 }

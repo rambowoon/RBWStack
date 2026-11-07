@@ -3,6 +3,8 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Text;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Collections.Generic;
@@ -59,13 +61,16 @@ namespace RBWStack
             Panel pnlHeader = new Panel();
             pnlHeader.Location = new Point(0, 0);
             pnlHeader.Size = new Size(380, 40);
-            pnlHeader.BackColor = Color.FromArgb(241, 245, 249); // Slate 100
+            pnlHeader.BackColor = Color.White;
             pnlHeader.Paint += (s, pe) => {
-                pe.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                pe.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                pe.Graphics.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
                 using (Font font = new Font("Segoe UI", 9.5f, FontStyle.Bold))
-                using (SolidBrush br = new SolidBrush(Color.FromArgb(37, 99, 235))) // Blue-600
+                using (SolidBrush brIcon = new SolidBrush(Color.FromArgb(37, 99, 235)))
+                using (SolidBrush brText = new SolidBrush(Color.FromArgb(30, 41, 59)))
                 {
-                    pe.Graphics.DrawString("⚡  CẤU HÌNH HOST ẢO LOCAL", font, br, new PointF(14f, 11f));
+                    pe.Graphics.DrawString("🌐", font, brIcon, new PointF(14f, 10f));
+                    pe.Graphics.DrawString("CẤU HÌNH HOST ẢO LOCAL", font, brText, new PointF(34f, 10f));
                 }
                 using (Pen pen = new Pen(Color.FromArgb(226, 232, 240), 1f))
                 {
@@ -137,7 +142,7 @@ namespace RBWStack
                 // Host ảo chưa bật: hiện nút "Bật Host ảo" và "Hủy"
                 _btnSave = new ModernButton();
                 _btnSave.Text = "Bật Host ảo";
-                _btnSave.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnSave.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
                 _btnSave.NormalColor = Color.FromArgb(34, 197, 94); // Green-500
                 _btnSave.HoverColor = Color.FromArgb(22, 163, 74); // Green-600
                 _btnSave.ForeColor = Color.White;
@@ -162,7 +167,7 @@ namespace RBWStack
 
                 _btnCancel = new ModernButton();
                 _btnCancel.Text = "Hủy";
-                _btnCancel.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnCancel.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
                 _btnCancel.NormalColor = Color.White;
                 _btnCancel.HoverColor = Color.FromArgb(243, 244, 246);
                 _btnCancel.ForeColor = Color.FromArgb(107, 114, 128);
@@ -181,7 +186,7 @@ namespace RBWStack
                 // Host ảo đang chạy: hiện nút "Cập nhật", "Tắt Host ảo" và "Hủy"
                 _btnSave = new ModernButton();
                 _btnSave.Text = "Cập nhật";
-                _btnSave.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnSave.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
                 _btnSave.NormalColor = Color.FromArgb(59, 130, 246); // Blue-500
                 _btnSave.HoverColor = Color.FromArgb(37, 99, 235); // Blue-600
                 _btnSave.ForeColor = Color.White;
@@ -211,7 +216,7 @@ namespace RBWStack
 
                 ModernButton btnToggleOff = new ModernButton();
                 btnToggleOff.Text = "Tắt Host ảo";
-                btnToggleOff.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                btnToggleOff.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
                 btnToggleOff.NormalColor = Color.FromArgb(239, 68, 68); // Red-500
                 btnToggleOff.HoverColor = Color.FromArgb(220, 38, 38); // Red-600
                 btnToggleOff.ForeColor = Color.White;
@@ -230,7 +235,7 @@ namespace RBWStack
 
                 _btnCancel = new ModernButton();
                 _btnCancel.Text = "Hủy";
-                _btnCancel.Font = new Font("Segoe UI Semibold", 9.5f, FontStyle.Bold);
+                _btnCancel.Font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
                 _btnCancel.NormalColor = Color.White;
                 _btnCancel.HoverColor = Color.FromArgb(243, 244, 246);
                 _btnCancel.ForeColor = Color.FromArgb(107, 114, 128);
