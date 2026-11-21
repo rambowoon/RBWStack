@@ -1,0 +1,28 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RBWStack.Avalonia.Views.VHostModalWindow"
+        Width="460" Height="270"
+        CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Cấu hình Tên miền ảo (Virtual Host)">
+    <StackPanel Margin="20" Spacing="14">
+        <TextBlock Text="Cấu hình Tên miền ảo (VHost)" FontSize="16" FontWeight="Bold" />
+        <TextBlock x:Name="TxtSiteInfo" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="Tên miền ảo" FontSize="12" FontWeight="SemiBold" />
+            <TextBox x:Name="TxtDomain" Watermark="vd: myproject.local" />
+        </StackPanel>
+
+        <DockPanel>
+            <TextBlock Text="Kích hoạt Virtual Host (ghi vào file hosts)" VerticalAlignment="Center" FontSize="13" />
+            <ToggleSwitch x:Name="SwEnabled" DockPanel.Dock="Right" HorizontalAlignment="Right" />
+        </DockPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,8,0,0">
+            <Button Content="Hủy" Classes="btn-outline" Click="OnCancelClick" />
+            <Button Content="Lưu cấu hình" Classes="btn-primary" Click="OnSaveClick" />
+        </StackPanel>
+    </StackPanel>
+</Window>
+

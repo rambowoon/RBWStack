@@ -1,0 +1,317 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Base Window Font -->
+    <Style Selector="Window">
+        <Setter Property="FontFamily" Value="Inter, Segoe UI, sans-serif" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="Background" Value="{DynamicResource AppBgBrush}" />
+    </Style>
+
+    <!-- Card Border -->
+    <Style Selector="Border.card">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="18" />
+    </Style>
+
+    <Style Selector="Border.card-compact">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="14,12" />
+    </Style>
+
+    <Style Selector="Border.card-subtle">
+        <Setter Property="Background" Value="{DynamicResource CardSubtleBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="14,10" />
+    </Style>
+
+    <!-- Sidebar Nav Button -->
+    <Style Selector="Button.nav-item">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.nav-item:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource NavHoverBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.nav-item.active">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.nav-item.active /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+
+    <!-- Primary Purple Button -->
+    <Style Selector="Button.btn-primary">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="14,8" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.btn-primary:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentHoverBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <!-- Outline Button -->
+    <Style Selector="Button.btn-outline">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.btn-outline:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource NavHoverBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <!-- Success Green Button -->
+    <Style Selector="Button.btn-success">
+        <Setter Property="Background" Value="{DynamicResource SuccessBrush}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.btn-success:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="#059669" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+    </Style>
+
+    <!-- Danger Outline Button -->
+    <Style Selector="Button.btn-danger-outline">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.btn-danger-outline:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource DangerSoftBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+    </Style>
+
+    <!-- Center all flat SVG Path icons cleanly inside Borders & Buttons -->
+    <Style Selector="Path">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Small Icon Button -->
+    <Style Selector="Button.btn-icon">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.btn-icon:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource NavHoverBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="Button.btn-icon.active-green">
+        <Setter Property="Background" Value="{DynamicResource SuccessSoftBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SuccessTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource SuccessBrush}" />
+    </Style>
+
+    <!-- Titlebar Window Control Button -->
+    <Style Selector="Button.win-ctrl">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="30" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.win-ctrl:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource PillNeutralBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+
+    <!-- Quick Action Card Button -->
+    <Style Selector="Button.quick-action">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Padding" Value="14,12" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.quick-action:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource CardSubtleBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <!-- Download Category Tab Pill -->
+    <Style Selector="Button.cat-tab">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="12,7" />
+        <Setter Property="FontSize" Value="12.5" />
+        <Setter Property="FontWeight" Value="Medium" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.cat-tab:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource NavHoverBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+    </Style>
+    <Style Selector="Button.cat-tab.active">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.cat-tab.active /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+
+    <!-- TextBox & ComboBox Polish -->
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="{DynamicResource InputBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="ComboBox">
+        <Setter Property="Background" Value="{DynamicResource InputBgBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="Padding" Value="10,0" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- ToggleSwitch Purple Accent (flush-right compact pill, zero trailing gap) -->
+    <Style Selector="ToggleSwitch">
+        <Setter Property="OnContent" Value="" />
+        <Setter Property="OffContent" Value="" />
+        <Setter Property="MinWidth" Value="42" />
+        <Setter Property="Width" Value="42" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="Track" Width="42" Height="24" CornerRadius="12"
+                        Background="{DynamicResource PillNeutralBgBrush}"
+                        BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1">
+                    <Canvas x:Name="PART_SwitchKnob" Width="40" Height="22">
+                        <Panel x:Name="PART_MovingKnobs" Width="18" Height="18" Canvas.Top="2" Canvas.Left="2">
+                            <Border x:Name="Knob" Width="18" Height="18" CornerRadius="9"
+                                    Background="#FFFFFF"
+                                    BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1" />
+                        </Panel>
+                    </Canvas>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="ToggleSwitch:checked /template/ Border#Track">
+        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="ToggleSwitch:checked /template/ Panel#PART_MovingKnobs">
+        <Setter Property="Canvas.Left" Value="20" />
+    </Style>
+    <Style Selector="ToggleSwitch:checked /template/ Border#Knob">
+        <Setter Property="BorderBrush" Value="#FFFFFF" />
+    </Style>
+
+    <!-- Multi-PHP Pool Selectable Card (no checkbox) -->
+    <Style Selector="ToggleButton.php-pool-card">
+        <Setter Property="Background" Value="{DynamicResource CardSubtleBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushMain}" />
+        <Setter Property="BorderThickness" Value="1.5" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="Padding" Value="12,9" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style Selector="ToggleButton.php-pool-card:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource NavHoverBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+    <Style Selector="ToggleButton.php-pool-card:checked /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    </Style>
+
+    <!-- Mail Sandbox ListBox Item Polish (soft purple active instead of harsh blue) -->
+    <Style Selector="ListBox.mail-list ListBoxItem">
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="ListBox.mail-list ListBoxItem:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource NavHoverBgBrush}" />
+    </Style>
+    <Style Selector="ListBox.mail-list ListBoxItem:selected /template/ ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBgBrush}" />
+    </Style>
+    <Style Selector="ListBox.mail-list ListBoxItem:selected">
+        <Setter Property="Foreground" Value="{DynamicResource AccentTextBrush}" />
+    </Style>
+
+</Styles>
+

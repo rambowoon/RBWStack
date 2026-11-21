@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RBWStack.Avalonia.Views.ProView">
+    <ScrollViewer Padding="28,22" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="18">
+            <StackPanel Spacing="4">
+                <TextBlock Text="RBW Pro Edition" FontSize="22" FontWeight="Bold" />
+                <TextBlock Text="Thông tin hệ thống và bộ công cụ nâng cao dành cho lập trình viên" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+
+            <Border Classes="card">
+                <StackPanel Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Border Width="42" Height="42" CornerRadius="10" Background="#F3E8FF">
+                            <Path Data="{StaticResource IconCrown}" Width="20" Height="20" Stretch="Uniform"
+                                  Stroke="#7C3AED" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="RBWStack — Portable Dev Stack" FontSize="16" FontWeight="Bold" />
+                            <TextBlock Text="{Binding CurrentVersion, StringFormat='Phiên bản {0} · Avalonia UI (.NET 9)'}" FontSize="12.5" Foreground="{DynamicResource AccentTextBrush}" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock TextWrapping="Wrap" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" LineHeight="22"
+                               Text="• Quản lý đa phiên bản PHP FastCGI (7.4 – 8.5), Apache, Nginx và MySQL/MariaDB siêu tốc.&#x0a;• Tự động cấu hình php.ini tối ưu và tự động cài đặt ionCube Loader v15 cho mã nguồn mã hóa.&#x0a;• Hệ thống Multi-Server Deploy Demo 1-Click hỗ trợ biến động {domain} cho DirectAdmin.&#x0a;• Tích hợp sẵn Mail Sandbox (SMTP 2525), Virtual Host &amp; SSL cục bộ." />
+
+                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+                        <Button Classes="btn-outline" Command="{Binding OpenHostsFileCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Path Data="{StaticResource IconSettings}" Width="13" Height="13" Stretch="Uniform"
+                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                                <TextBlock Text="Chỉnh sửa file Hosts" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="btn-outline" Command="{Binding OpenPhpMyAdminCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Path Data="{StaticResource IconTable}" Width="13" Height="13" Stretch="Uniform"
+                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                                <TextBlock Text="Mở phpMyAdmin" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="btn-outline" Command="{Binding OpenDocumentRootCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Path Data="{StaticResource IconFolder}" Width="13" Height="13" Stretch="Uniform"
+                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                                <TextBlock Text="Mở thư mục www" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

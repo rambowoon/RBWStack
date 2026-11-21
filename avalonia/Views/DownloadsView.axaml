@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:RBWStack.Avalonia.Views"
+             x:Class="RBWStack.Avalonia.Views.DownloadsView"
+             x:Name="DownloadsRoot">
+    <Grid RowDefinitions="Auto,Auto,*" Margin="28,22,28,16">
+        <!-- Header -->
+        <DockPanel Grid.Row="0" Margin="0,0,0,16">
+            <Button DockPanel.Dock="Right" Classes="btn-outline" VerticalAlignment="Center"
+                    Command="{Binding SyncDownloadsCommand}">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform"
+                          Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                    <TextBlock Text="Quét bản mới nhất" />
+                </StackPanel>
+            </Button>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Kho tải phần mềm" FontSize="22" FontWeight="Bold" />
+                <TextBlock Text="{Binding DownloadSubtitle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </DockPanel>
+
+        <!-- Category Tabs -->
+        <Border Grid.Row="1" Background="{DynamicResource PillNeutralBgBrush}" BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1" CornerRadius="10" Padding="4" Margin="0,0,0,16" HorizontalAlignment="Left">
+            <ItemsControl ItemsSource="{Binding DownloadCategories}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Classes="cat-tab" Classes.active="{Binding IsSelected}" Margin="2,0"
+                                Content="{Binding Name}"
+                                Command="{Binding #DownloadsRoot.DataContext.SelectDownloadCategoryCommand}"
+                                CommandParameter="{Binding Name}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <!-- 2-Column Download Cards Grid (VerticalAlignment=Top prevents stretching) -->
+        <ScrollViewer Grid.Row="2" HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding FilteredDownloads}" VerticalAlignment="Top">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="2" VerticalAlignment="Top" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Classes="card-compact" Margin="0,0,12,12">
+                            <StackPanel Spacing="14">
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <Border Width="38" Height="38" CornerRadius="10" Background="#F3E8FF">
+                                        <views:SvgIcon Data="{StaticResource IconCode}" Size="18" Stroke="#7C3AED" />
+                                    </Border>
+                                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                                        <TextBlock Text="{Binding DisplayName}" FontSize="13.5" FontWeight="Bold" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding SavePathText}" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding Progress}" Height="4"
+                                             IsVisible="{Binding IsDownloading}"
+                                             Foreground="{DynamicResource AccentBrush}" />
+
+                                <DockPanel>
+                                    <Border CornerRadius="8" Padding="9,4" VerticalAlignment="Center"
+                                            Background="{DynamicResource PillNeutralBgBrush}"
+                                            IsVisible="{Binding !IsInstalled}">
+                                        <TextBlock Text="{Binding StatusLabel}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </Border>
+                                    <Border CornerRadius="8" Padding="9,4" VerticalAlignment="Center"
+                                            Background="{DynamicResource SuccessSoftBgBrush}"
+                                            IsVisible="{Binding IsInstalled}">
+                                        <TextBlock Text="Đã cài đặt" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource SuccessTextBrush}" />
+                                    </Border>
+
+                                    <Button DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                            Classes="btn-primary" IsVisible="{Binding !IsInstalled}"
+                                            Command="{Binding #DownloadsRoot.DataContext.InstallDownloadCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Path Data="{StaticResource IconDownload}" Width="13" Height="13" Stretch="Uniform"
+                                                  Stroke="#FFFFFF" StrokeThickness="1.85" StrokeLineCap="Round" StrokeJoin="Round" />
+                                            <TextBlock Text="{Binding ActionButtonText}" />
+                                        </StackPanel>
+                                    </Button>
+
+                                    <Button DockPanel.Dock="Right" HorizontalAlignment="Right"
+                                            Classes="btn-outline" IsVisible="{Binding IsInstalled}"
+                                            Command="{Binding #DownloadsRoot.DataContext.InstallDownloadCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform"
+                                                  Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                                            <TextBlock Text="{Binding ActionButtonText}" />
+                                        </StackPanel>
+                                    </Button>
+                                </DockPanel>
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

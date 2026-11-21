@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RBWStack.Avalonia.Views.UpdateView">
+    <ScrollViewer Padding="28,22" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="18">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="btn-primary" VerticalAlignment="Center"
+                        Command="{Binding CheckForUpdatesCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform"
+                              Stroke="#FFFFFF" StrokeThickness="1.85" StrokeLineCap="Round" StrokeJoin="Round" />
+                        <TextBlock Text="Kiểm tra cập nhật" />
+                    </StackPanel>
+                </Button>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Cập nhật phần mềm" FontSize="22" FontWeight="Bold" />
+                    <TextBlock Text="Kiểm tra và tải phiên bản mới nhất từ kho lưu trữ GitHub" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+            </DockPanel>
+
+            <Border Classes="card">
+                <StackPanel Spacing="14">
+                    <Grid ColumnDefinitions="*,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Text="Phiên bản hiện tại" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{Binding CurrentVersion}" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource AccentTextBrush}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="4">
+                            <TextBlock Text="Phiên bản mới nhất trên GitHub" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{Binding LatestVersionText}" FontSize="20" FontWeight="Bold" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Classes="card-subtle" Padding="14">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Ghi chú phát hành" FontSize="12.5" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding ReleaseNotesText}" TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button Classes="btn-primary" IsVisible="{Binding HasUpdateAvailable}"
+                                Command="{Binding SelfUpdateCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Path Data="{StaticResource IconDownload}" Width="13" Height="13" Stretch="Uniform"
+                                      Stroke="#FFFFFF" StrokeThickness="1.85" StrokeLineCap="Round" StrokeJoin="Round" />
+                                <TextBlock Text="Cập nhật ngay (Tự động)" />
+                            </StackPanel>
+                        </Button>
+                        <Button Classes="btn-outline" Command="{Binding OpenLatestReleaseUrlCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Path Data="{StaticResource IconGlobe}" Width="13" Height="13" Stretch="Uniform"
+                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                                <TextBlock Text="Xem trang Releases" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

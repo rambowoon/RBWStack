@@ -1,0 +1,77 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="RBWStack.Avalonia.App"
+             RequestedThemeVariant="Light">
+    <Application.Styles>
+        <FluentTheme />
+        <StyleInclude Source="avares://RBWStack/Themes/Controls.axaml" />
+    </Application.Styles>
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://RBWStack/Themes/Icons.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppBgBrush" Color="#F5F7FB" />
+                    <SolidColorBrush x:Key="SidebarBgBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="TopBarBgBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="CardBgBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="CardSubtleBgBrush" Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="InputBgBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="BorderBrushMain" Color="#E5E7EB" />
+                    <SolidColorBrush x:Key="BorderBrushLight" Color="#F1F5F9" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#64748B" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#94A3B8" />
+                    <SolidColorBrush x:Key="AccentBrush" Color="#6D28D9" />
+                    <SolidColorBrush x:Key="AccentHoverBrush" Color="#5B21B6" />
+                    <SolidColorBrush x:Key="AccentSoftBgBrush" Color="#F3F0FF" />
+                    <SolidColorBrush x:Key="AccentTextBrush" Color="#6D28D9" />
+                    <SolidColorBrush x:Key="SuccessBrush" Color="#10B981" />
+                    <SolidColorBrush x:Key="SuccessSoftBgBrush" Color="#ECFDF5" />
+                    <SolidColorBrush x:Key="SuccessTextBrush" Color="#059669" />
+                    <SolidColorBrush x:Key="DangerBrush" Color="#EF4444" />
+                    <SolidColorBrush x:Key="DangerSoftBgBrush" Color="#FEF2F2" />
+                    <SolidColorBrush x:Key="DangerBorderBrush" Color="#FECACA" />
+                    <SolidColorBrush x:Key="WarningSoftBgBrush" Color="#FFFBEB" />
+                    <SolidColorBrush x:Key="WarningTextBrush" Color="#D97706" />
+                    <SolidColorBrush x:Key="InfoSoftBgBrush" Color="#EFF6FF" />
+                    <SolidColorBrush x:Key="InfoTextBrush" Color="#2563EB" />
+                    <SolidColorBrush x:Key="PillNeutralBgBrush" Color="#F1F5F9" />
+                    <SolidColorBrush x:Key="NavHoverBgBrush" Color="#F8FAFC" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="AppBgBrush" Color="#0F172A" />
+                    <SolidColorBrush x:Key="SidebarBgBrush" Color="#111827" />
+                    <SolidColorBrush x:Key="TopBarBgBrush" Color="#111827" />
+                    <SolidColorBrush x:Key="CardBgBrush" Color="#1E293B" />
+                    <SolidColorBrush x:Key="CardSubtleBgBrush" Color="#172033" />
+                    <SolidColorBrush x:Key="InputBgBrush" Color="#0F172A" />
+                    <SolidColorBrush x:Key="BorderBrushMain" Color="#334155" />
+                    <SolidColorBrush x:Key="BorderBrushLight" Color="#1E293B" />
+                    <SolidColorBrush x:Key="TextPrimaryBrush" Color="#F8FAFC" />
+                    <SolidColorBrush x:Key="TextSecondaryBrush" Color="#94A3B8" />
+                    <SolidColorBrush x:Key="TextMutedBrush" Color="#64748B" />
+                    <SolidColorBrush x:Key="AccentBrush" Color="#7C3AED" />
+                    <SolidColorBrush x:Key="AccentHoverBrush" Color="#6D28D9" />
+                    <SolidColorBrush x:Key="AccentSoftBgBrush" Color="#2E1065" />
+                    <SolidColorBrush x:Key="AccentTextBrush" Color="#C4B5FD" />
+                    <SolidColorBrush x:Key="SuccessBrush" Color="#10B981" />
+                    <SolidColorBrush x:Key="SuccessSoftBgBrush" Color="#064E3B" />
+                    <SolidColorBrush x:Key="SuccessTextBrush" Color="#34D399" />
+                    <SolidColorBrush x:Key="DangerBrush" Color="#F87171" />
+                    <SolidColorBrush x:Key="DangerSoftBgBrush" Color="#450A0A" />
+                    <SolidColorBrush x:Key="DangerBorderBrush" Color="#7F1D1D" />
+                    <SolidColorBrush x:Key="WarningSoftBgBrush" Color="#451A03" />
+                    <SolidColorBrush x:Key="WarningTextBrush" Color="#FBBF24" />
+                    <SolidColorBrush x:Key="InfoSoftBgBrush" Color="#172554" />
+                    <SolidColorBrush x:Key="InfoTextBrush" Color="#60A5FA" />
+                    <SolidColorBrush x:Key="PillNeutralBgBrush" Color="#334155" />
+                    <SolidColorBrush x:Key="NavHoverBgBrush" Color="#1E293B" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
+

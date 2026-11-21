@@ -1,0 +1,92 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:RBWStack.Avalonia.Views"
+             x:Class="RBWStack.Avalonia.Views.MailSandboxView">
+    <Grid RowDefinitions="Auto,*" Margin="28,22,28,18">
+        <DockPanel Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                <Button Classes="btn-outline" Command="{Binding ToggleMailServerCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="{StaticResource IconMail}" Width="14" Height="14" Stretch="Uniform"
+                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                        <TextBlock Text="Bật / Tắt SMTP (Port 2525)" />
+                    </StackPanel>
+                </Button>
+                <Button Classes="btn-danger-outline" Command="{Binding ClearEmailsCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="{StaticResource IconTrash}" Width="14" Height="14" Stretch="Uniform"
+                              Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                        <TextBlock Text="Xóa tất cả" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Mail Sandbox" FontSize="22" FontWeight="Bold" />
+                <TextBlock Text="Bắt email gửi ra từ PHP / Laravel cục bộ qua SMTP 127.0.0.1:2525" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1" ColumnDefinitions="310,16,*">
+            <!-- Left Email List -->
+            <Border Grid.Column="0" Classes="card-compact" Padding="8">
+                <ListBox Classes="mail-list" ItemsSource="{Binding Emails}" SelectedItem="{Binding SelectedEmail}" Background="Transparent">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="{Binding Subject}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding To}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Date}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <!-- Right Email Preview (WebView2 HTML + Raw toggle) -->
+            <Border Grid.Column="2" Classes="card" Padding="18">
+                <Grid RowDefinitions="Auto,14,*">
+                    <Grid Grid.Row="0" ColumnDefinitions="*,14,Auto">
+                        <StackPanel Grid.Column="0" Spacing="6" MinWidth="0">
+                            <TextBlock Text="{Binding SelectedEmail.Subject, FallbackValue='Chọn một email để xem nội dung'}"
+                                       FontSize="15" FontWeight="Bold" TextWrapping="Wrap" />
+                            <WrapPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding SelectedEmail.From, StringFormat='Từ: {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,14,2" />
+                                <TextBlock Text="{Binding SelectedEmail.To, StringFormat='Đến: {0}'}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,14,2" />
+                                <TextBlock Text="{Binding SelectedEmail.Date}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,2" />
+                            </WrapPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Top">
+                            <Button x:Name="BtnToggleMode" Classes="btn-outline" Click="OnToggleViewModeClick">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <views:SvgIcon Data="{StaticResource IconCode}" Size="14" Stroke="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock x:Name="TxtModeLabel" Text="Xem mã nguồn" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                            <Button Classes="btn-outline" Click="OnOpenInBrowserClick" ToolTip.Tip="Mở email HTML bằng trình duyệt">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <views:SvgIcon Data="{StaticResource IconExternal}" Size="14" Stroke="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="Trình duyệt" FontSize="12" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Rendered HTML View via Edge WebView2 -->
+                    <Border Grid.Row="2" x:Name="PnlHtmlPreview" Background="#FFFFFF"
+                            BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1"
+                            CornerRadius="8" ClipToBounds="True">
+                        <views:WebView2Control HtmlContent="{Binding SelectedEmail.HtmlBody}" />
+                    </Border>
+
+                    <!-- Raw Source View -->
+                    <TextBox Grid.Row="2" x:Name="TxtRawPreview" IsVisible="False"
+                             IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                             FontFamily="Cascadia Code, Consolas, monospace" FontSize="12"
+                             Text="{Binding SelectedEmail.Body}"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

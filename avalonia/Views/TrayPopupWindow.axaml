@@ -1,0 +1,134 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RBWStack.Avalonia.Views.TrayPopupWindow"
+        Width="286"
+        SizeToContent="Height"
+        SystemDecorations="None"
+        ShowInTaskbar="False"
+        Topmost="True"
+        CanResize="False"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
+
+    <Border Background="{DynamicResource CardBgBrush}"
+            BorderBrush="{DynamicResource BorderBrushMain}"
+            BorderThickness="1"
+            CornerRadius="12"
+            ClipToBounds="True">
+        <StackPanel>
+            <!-- Header -->
+            <Border Padding="16,14" BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1">
+                <StackPanel Orientation="Horizontal" Spacing="11" VerticalAlignment="Center">
+                    <Border Width="34" Height="34" CornerRadius="8" Background="#111827">
+                        <Image Source="avares://RBWStack/Assets/app.ico" Width="22" Height="22" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Spacing="1">
+                        <TextBlock Text="RBW Stack" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="Local Development Environment" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Section: DỊCH VỤ HỆ THỐNG -->
+            <StackPanel Margin="16,12,16,8" Spacing="4">
+                <TextBlock Text="DỊCH VỤ HỆ THỐNG" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6" />
+
+                <!-- Row 1: Web Server -->
+                <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1" Padding="0,6">
+                    <Grid ColumnDefinitions="Auto,10,*,Auto">
+                        <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !WebService.IsRunning}" VerticalAlignment="Center" />
+                        <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding WebService.IsRunning}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding WebService.Title}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
+                                Background="{DynamicResource SuccessSoftBgBrush}" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1"
+                                IsVisible="{Binding WebService.IsRunning}" Click="OnToggleWebClick">
+                            <TextBlock Text="Chạy" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource SuccessTextBrush}" />
+                        </Button>
+                        <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
+                                Background="{DynamicResource PillNeutralBgBrush}" BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1"
+                                IsVisible="{Binding !WebService.IsRunning}" Click="OnToggleWebClick">
+                            <TextBlock Text="Dừng" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Row 2: PHP -->
+                <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1" Padding="0,6">
+                    <Grid ColumnDefinitions="Auto,10,*,Auto">
+                        <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !PhpService.IsRunning}" VerticalAlignment="Center" />
+                        <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding PhpService.IsRunning}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding PhpService.SelectedVersion, StringFormat='PHP {0}'}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
+                                Background="{DynamicResource SuccessSoftBgBrush}" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1"
+                                IsVisible="{Binding PhpService.IsRunning}" Click="OnTogglePhpClick">
+                            <TextBlock Text="Chạy" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource SuccessTextBrush}" />
+                        </Button>
+                        <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
+                                Background="{DynamicResource PillNeutralBgBrush}" BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1"
+                                IsVisible="{Binding !PhpService.IsRunning}" Click="OnTogglePhpClick">
+                            <TextBlock Text="Dừng" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Row 3: MySQL / MariaDB -->
+                <Border Padding="0,6">
+                    <Grid ColumnDefinitions="Auto,10,*,Auto">
+                        <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !MySqlService.IsRunning}" VerticalAlignment="Center" />
+                        <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding MySqlService.IsRunning}" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding MySqlService.Title}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
+                                Background="{DynamicResource SuccessSoftBgBrush}" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1"
+                                IsVisible="{Binding MySqlService.IsRunning}" Click="OnToggleMySqlClick">
+                            <TextBlock Text="Chạy" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource SuccessTextBrush}" />
+                        </Button>
+                        <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
+                                Background="{DynamicResource PillNeutralBgBrush}" BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1"
+                                IsVisible="{Binding !MySqlService.IsRunning}" Click="OnToggleMySqlClick">
+                            <TextBlock Text="Dừng" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </Button>
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- Action Menu List -->
+            <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,1,0,0" Margin="0,4,0,0">
+                <StackPanel>
+                    <!-- Stop All / Start All -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
+                            Command="{Binding StopAllCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Path Data="{StaticResource IconStop}" Width="14" Height="14" Stretch="Uniform"
+                                  Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <TextBlock Text="Dừng tất cả" FontSize="13" Foreground="{DynamicResource DangerBrush}" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Border Height="1" Background="{DynamicResource BorderBrushLight}" Margin="16,0" />
+
+                    <!-- Mở giao diện chính -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
+                            Click="OnOpenMainClick">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Path Data="{StaticResource IconMaximize}" Width="14" Height="14" Stretch="Uniform"
+                                  Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <TextBlock Text="Mở giao diện chính" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <Border Height="1" Background="{DynamicResource BorderBrushLight}" Margin="16,0" />
+
+                    <!-- Thoát ứng dụng -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
+                            Click="OnExitClick">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Path Data="{StaticResource IconPower}" Width="14" Height="14" Stretch="Uniform"
+                                  Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.75" StrokeLineCap="Round" />
+                            <TextBlock Text="Thoát ứng dụng" FontSize="13" Foreground="{DynamicResource DangerBrush}" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </Border>
+</Window>

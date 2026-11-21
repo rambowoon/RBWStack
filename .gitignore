@@ -7,6 +7,9 @@
 # Allow source code & build files
 !src/
 !src/**
+!avalonia/
+!avalonia/*/
+!avalonia/**
 !build.bat
 !www/
 !www/**
@@ -30,3 +33,9 @@ www/**/cache/
 !ssl/
 !ssl/cacert.pem
 !ssl/localhost.pfx
+
+# Avalonia build outputs
+avalonia/bin/
+avalonia/obj/
+avalonia/publish/
+RBWStackAvalonia.exe

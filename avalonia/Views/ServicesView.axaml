@@ -1,0 +1,258 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:views="using:RBWStack.Avalonia.Views"
+             x:Class="RBWStack.Avalonia.Views.ServicesView">
+    <ScrollViewer Padding="28,22" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="20">
+            <!-- Header -->
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Classes="btn-outline" VerticalAlignment="Center"
+                        Command="{Binding RefreshServicesCommand}">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Path Data="{StaticResource IconRefresh}" Width="13" Height="13" Stretch="Uniform"
+                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                        <TextBlock Text="Làm mới" />
+                    </StackPanel>
+                </Button>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="Dịch vụ" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="Bật / tắt Web Server, PHP FastCGI và Cơ sở dữ liệu chỉ với một chạm" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+            </DockPanel>
+
+            <!-- 3 Service Cards -->
+            <Grid ColumnDefinitions="*,16,*,16,*">
+                <!-- Card 1: Web Server (Apache/Nginx) -->
+                <Border Grid.Column="0" Classes="card" MinWidth="0">
+                    <StackPanel Spacing="14">
+                        <DockPanel>
+                            <Border Width="40" Height="40" CornerRadius="10" Background="#EEF2FF">
+                                <views:SvgIcon Data="{StaticResource IconServer}" Size="19" Stroke="#4F46E5" />
+                            </Border>
+                            <ToggleSwitch DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          IsChecked="{Binding WebService.IsRunning, Mode=OneWay}"
+                                          Click="OnWebToggleClick" />
+                        </DockPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding WebService.Title}" FontSize="15" FontWeight="Bold" />
+                            <DockPanel>
+                                <Border CornerRadius="12" Padding="8,3"
+                                        Background="{DynamicResource PillNeutralBgBrush}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !WebService.IsRunning}" />
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding WebService.IsRunning}" />
+                                        <TextBlock Text="{Binding WebService.StatusText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Text="{Binding WebService.PortText}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                            </DockPanel>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,8,Auto">
+                            <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" MinWidth="0"
+                                      ItemsSource="{Binding WebService.Versions}"
+                                      SelectedItem="{Binding WebService.SelectedVersion}" />
+                            <Button Grid.Column="2" Classes="btn-icon" ToolTip.Tip="Mở file cấu hình"
+                                    Command="{Binding OpenServiceConfigCommand}" CommandParameter="{Binding WebService}">
+                                <views:SvgIcon Data="{StaticResource IconSliders}" Size="16" Stroke="{DynamicResource TextSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Card 2: PHP FastCGI -->
+                <Border Grid.Column="2" Classes="card" MinWidth="0">
+                    <StackPanel Spacing="14">
+                        <DockPanel>
+                            <Border Width="40" Height="40" CornerRadius="10" Background="#F3E8FF">
+                                <views:SvgIcon Data="{StaticResource IconCode}" Size="20" Stroke="#7C3AED" />
+                            </Border>
+                            <ToggleSwitch DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          IsChecked="{Binding PhpService.IsRunning, Mode=OneWay}"
+                                          Click="OnPhpToggleClick" />
+                        </DockPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding PhpService.Title}" FontSize="15" FontWeight="Bold" />
+                            <DockPanel>
+                                <Border CornerRadius="12" Padding="8,3" Background="{DynamicResource PillNeutralBgBrush}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !PhpService.IsRunning}" />
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding PhpService.IsRunning}" />
+                                        <TextBlock Text="{Binding PhpService.StatusText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Text="{Binding PhpService.PortText}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                            </DockPanel>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,8,Auto">
+                            <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" MinWidth="0"
+                                      ItemsSource="{Binding PhpService.Versions}"
+                                      SelectedItem="{Binding PhpService.SelectedVersion}" />
+                            <Button Grid.Column="2" Classes="btn-icon" ToolTip.Tip="Mở php.ini"
+                                    Command="{Binding OpenServiceConfigCommand}" CommandParameter="{Binding PhpService}">
+                                <views:SvgIcon Data="{StaticResource IconSliders}" Size="16" Stroke="{DynamicResource TextSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Card 3: MySQL / MariaDB -->
+                <Border Grid.Column="4" Classes="card" MinWidth="0">
+                    <StackPanel Spacing="14">
+                        <DockPanel>
+                            <Border Width="40" Height="40" CornerRadius="10" Background="#FEF3C7">
+                                <views:SvgIcon Data="{StaticResource IconDatabase}" Size="19" Stroke="#D97706" />
+                            </Border>
+                            <ToggleSwitch DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                          IsChecked="{Binding MySqlService.IsRunning, Mode=OneWay}"
+                                          Click="OnMySqlToggleClick" />
+                        </DockPanel>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="{Binding MySqlService.Title}" FontSize="15" FontWeight="Bold" />
+                            <DockPanel>
+                                <Border CornerRadius="12" Padding="8,3" Background="{DynamicResource PillNeutralBgBrush}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !MySqlService.IsRunning}" />
+                                        <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding MySqlService.IsRunning}" />
+                                        <TextBlock Text="{Binding MySqlService.StatusText}" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </StackPanel>
+                                </Border>
+                                <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                           Text="{Binding MySqlService.PortText}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                            </DockPanel>
+                        </StackPanel>
+
+                        <Grid ColumnDefinitions="*,8,Auto">
+                            <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" MinWidth="0"
+                                      ItemsSource="{Binding MySqlService.Versions}"
+                                      SelectedItem="{Binding MySqlService.SelectedVersion}" />
+                            <Button Grid.Column="2" Classes="btn-icon" ToolTip.Tip="Mở my.ini"
+                                    Command="{Binding OpenServiceConfigCommand}" CommandParameter="{Binding MySqlService}">
+                                <views:SvgIcon Data="{StaticResource IconSliders}" Size="16" Stroke="{DynamicResource TextSecondaryBrush}" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- Multi-PHP Version Selector Bar -->
+            <Border Classes="card-compact">
+                <StackPanel Spacing="10">
+                    <DockPanel>
+                        <TextBlock Text="Chọn các phiên bản PHP muốn chạy đồng thời (FastCGI Pools)" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock DockPanel.Dock="Right" HorizontalAlignment="Right" Text="Tự động gắn ionCube &amp; cấu hình cổng riêng" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <ItemsControl ItemsSource="{Binding PhpPools}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <ToggleButton Classes="php-pool-card" Margin="0,0,10,8"
+                                              IsChecked="{Binding IsSelected}">
+                                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                                        <Border Width="32" Height="32" CornerRadius="8" Background="#F3E8FF">
+                                            <views:SvgIcon Data="{StaticResource IconCode}" Size="16" Stroke="#7C3AED" />
+                                        </Border>
+                                        <StackPanel VerticalAlignment="Center" Spacing="1">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock Text="{Binding Version}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding IsRunning}" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding PortLabel}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </ToggleButton>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- Quick Actions -->
+            <StackPanel Spacing="10">
+                <TextBlock Text="Thao tác nhanh" FontSize="13.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                <Grid ColumnDefinitions="*,12,*,12,*,12,*">
+                    <Button Grid.Column="0" Classes="quick-action" Command="{Binding StartAllCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Width="36" Height="36" CornerRadius="10" Background="{DynamicResource SuccessSoftBgBrush}">
+                                <views:SvgIcon Data="{StaticResource IconPlay}" Size="16" Stroke="{DynamicResource SuccessTextBrush}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Start All" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="Bật toàn bộ dịch vụ" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="2" Classes="quick-action" Command="{Binding StopAllCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Width="36" Height="36" CornerRadius="10" Background="{DynamicResource DangerSoftBgBrush}">
+                                <views:SvgIcon Data="{StaticResource IconPower}" Size="16" Stroke="{DynamicResource DangerBrush}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Stop All" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="Dừng toàn bộ dịch vụ" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="4" Classes="quick-action" Command="{Binding OpenPhpMyAdminCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Width="36" Height="36" CornerRadius="10" Background="{DynamicResource WarningSoftBgBrush}">
+                                <views:SvgIcon Data="{StaticResource IconTable}" Size="16" Stroke="{DynamicResource WarningTextBrush}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="phpMyAdmin" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="Quản trị CSDL" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Grid.Column="6" Classes="quick-action" Command="{Binding OpenLocalhostCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Border Width="36" Height="36" CornerRadius="10" Background="{DynamicResource InfoSoftBgBrush}">
+                                <views:SvgIcon Data="{StaticResource IconExternal}" Size="16" Stroke="{DynamicResource InfoTextBrush}" />
+                            </Border>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Localhost" FontSize="13" FontWeight="SemiBold" />
+                                <TextBlock Text="Mở trình duyệt" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </StackPanel>
+
+            <!-- Document Root Bar -->
+            <Border Classes="card-compact">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="btn-outline" VerticalAlignment="Center"
+                            Command="{Binding OpenDocumentRootCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <Path Data="{StaticResource IconFolder}" Width="14" Height="14" Stretch="Uniform"
+                                  Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <TextBlock Text="Mở thư mục" />
+                        </StackPanel>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                        <Border Width="36" Height="36" CornerRadius="10" Background="{DynamicResource InfoSoftBgBrush}">
+                            <views:SvgIcon Data="{StaticResource IconFolder}" Size="17" Stroke="{DynamicResource InfoTextBrush}" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Document Root" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Text="{Binding Settings.DocumentRoot}" FontSize="13" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

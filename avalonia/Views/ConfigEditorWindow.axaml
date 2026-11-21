@@ -1,0 +1,31 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="RBWStack.Avalonia.Views.ConfigEditorWindow"
+        Width="780" Height="560"
+        WindowStartupLocation="CenterOwner"
+        Title="Chỉnh sửa cấu hình">
+    <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <StackPanel>
+                <TextBlock x:Name="TxtTitle" FontSize="16" FontWeight="Bold" />
+                <TextBlock x:Name="TxtPath" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+            </StackPanel>
+        </DockPanel>
+        <TextBox Grid.Row="1" x:Name="TxtContent"
+                 AcceptsReturn="True" AcceptsTab="True"
+                 FontFamily="Cascadia Code, Consolas, monospace" FontSize="12.5"
+                 TextWrapping="NoWrap"
+                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                 ScrollViewer.VerticalScrollBarVisibility="Auto" />
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+            <Button Content="Đóng" Classes="btn-outline" Click="OnCloseClick" />
+            <Button Classes="btn-primary" Click="OnSaveClick">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Path Data="{StaticResource IconSave}" Width="14" Height="14" Stretch="Uniform"
+                          Stroke="#FFFFFF" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                    <TextBlock Text="Lưu cấu hình" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
+</Window>
