@@ -92,7 +92,6 @@ public partial class App : Application
             {
                 Icon = icon,
                 ToolTipText = "RBWStack v4.0.0",
-                Menu = menu,
                 IsVisible = true
             };
             _trayPopup = new TrayPopupWindow

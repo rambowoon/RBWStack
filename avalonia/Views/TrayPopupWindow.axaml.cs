@@ -10,15 +10,21 @@ namespace RBWStack.Avalonia.Views;
 public partial class TrayPopupWindow : Window
 {
     public Action? RequestShowMain { get; set; }
+    private DateTime _lastShownUtc = DateTime.MinValue;
 
     public TrayPopupWindow()
     {
         InitializeComponent();
-        Deactivated += (_, _) => Hide();
+        Deactivated += (_, _) =>
+        {
+            if ((DateTime.UtcNow - _lastShownUtc).TotalMilliseconds > 250)
+                Hide();
+        };
     }
 
     public void ShowAtBottomRight()
     {
+        _lastShownUtc = DateTime.UtcNow;
         Show();
         RepositionBottomRight();
         Dispatcher.UIThread.Post(RepositionBottomRight, DispatcherPriority.Loaded);
