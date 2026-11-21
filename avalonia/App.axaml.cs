@@ -2,16 +2,18 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Platform;
+using Avalonia.Threading;
+using RBWStack.Avalonia.Services;
 using RBWStack.Avalonia.ViewModels;
 using RBWStack.Avalonia.Views;
 using System;
+using System.IO;
 
 namespace RBWStack.Avalonia;
 
 public partial class App : Application
 {
-    private TrayIcon? _trayIcon;
+    private Win32TrayService? _trayService;
     private MainWindow? _mainWindow;
     private MainViewModel? _mainViewModel;
     private TrayPopupWindow? _trayPopup;
@@ -36,7 +38,7 @@ public partial class App : Application
                 _mainWindow.AllowRealClose = true;
                 _trayPopup?.Close();
                 _mainViewModel.CleanupOnExit();
-                _trayIcon?.Dispose();
+                _trayService?.Dispose();
                 desktop.Shutdown();
                 Environment.Exit(0);
             };
@@ -44,66 +46,37 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 _mainViewModel?.CleanupOnExit();
-                _trayIcon?.Dispose();
+                _trayService?.Dispose();
             };
 
             desktop.MainWindow = _mainWindow;
-            SetupTrayIcon(desktop);
+            SetupTrayIcon();
         }
 
         base.OnFrameworkInitializationCompleted();
     }
 
-    private void SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
+    private void SetupTrayIcon()
     {
         try
         {
-            var menu = new NativeMenu();
-
-            var openItem = new NativeMenuItem("Mở RBWStack");
-            openItem.Click += (_, _) => ShowMainWindow();
-            menu.Add(openItem);
-
-            menu.Add(new NativeMenuItemSeparator());
-
-            var startAllItem = new NativeMenuItem("Start All Services");
-            startAllItem.Click += (_, _) => _mainViewModel?.StartAllCommand.Execute(null);
-            menu.Add(startAllItem);
-
-            var stopAllItem = new NativeMenuItem("Stop All Services");
-            stopAllItem.Click += (_, _) => _mainViewModel?.StopAllCommand.Execute(null);
-            menu.Add(stopAllItem);
-
-            menu.Add(new NativeMenuItemSeparator());
-
-            var exitItem = new NativeMenuItem("Thoát ứng dụng");
-            exitItem.Click += (_, _) => _mainViewModel?.RequestExitAction?.Invoke();
-            menu.Add(exitItem);
-
-            WindowIcon? icon = null;
-            try
-            {
-                using var stream = AssetLoader.Open(new Uri("avares://RBWStack/Assets/app.ico"));
-                icon = new WindowIcon(stream);
-            }
-            catch { }
-
-            _trayIcon = new TrayIcon
-            {
-                Icon = icon,
-                ToolTipText = "RBWStack v4.0.0",
-                IsVisible = true
-            };
             _trayPopup = new TrayPopupWindow
             {
                 DataContext = _mainViewModel,
                 RequestShowMain = ShowMainWindow
             };
-            _trayIcon.Clicked += (_, _) =>
+
+            string icoPath = Path.Combine(PathHelper.RootDir, "app.ico");
+            if (!File.Exists(icoPath))
+                icoPath = Path.Combine(AppContext.BaseDirectory, "app.ico");
+
+            _trayService = new Win32TrayService("RBWStack v4.0.0", icoPath);
+            _trayService.LeftClicked += () => Dispatcher.UIThread.Post(ShowMainWindow);
+            _trayService.RightClicked += () => Dispatcher.UIThread.Post(() =>
             {
                 if (_trayPopup.IsVisible) _trayPopup.Hide();
                 else _trayPopup.ShowAtBottomRight();
-            };
+            });
         }
         catch { }
     }
@@ -116,4 +89,3 @@ public partial class App : Application
         _mainWindow.Activate();
     }
 }
-
