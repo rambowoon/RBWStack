@@ -48,11 +48,33 @@ public class ProcessManagerService
         };
     }
 
+    public static int GetPhpPortForVersion(string phpVersionDir, string activePhpVersion, int basePort = 9000)
+    {
+        if (!string.IsNullOrEmpty(activePhpVersion) && phpVersionDir.Equals(activePhpVersion, StringComparison.OrdinalIgnoreCase))
+            return basePort;
+
+        string phpRoot = Path.Combine(PathHelper.BinDir, "php");
+        if (Directory.Exists(phpRoot))
+        {
+            string[] phpDirs = Directory.GetDirectories(phpRoot, "php*");
+            Array.Sort(phpDirs, StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < phpDirs.Length; i++)
+            {
+                if (Path.GetFileName(phpDirs[i]).Equals(phpVersionDir, StringComparison.OrdinalIgnoreCase))
+                    return basePort + 1 + i;
+            }
+        }
+        return basePort;
+    }
+
     public async Task<(bool Ok, string Message)> StartWebServerAsync(AppSettingsModel settings, string version, Dictionary<string, string> sitePhpMap, Dictionary<string, string> vhostsMap)
     {
         await EnsureAllPhpIonCubeAsync();
         bool isNginx = settings.DefaultWebServer.Contains("Nginx", StringComparison.OrdinalIgnoreCase);
         if (string.IsNullOrEmpty(version)) return (false, "Chưa cài đặt Web Server.");
+
+        if (!isNginx)
+            await UpdateApacheMultiPhpRoutingAsync(settings, version, sitePhpMap);
 
         if (isNginx)
         {
@@ -110,7 +132,12 @@ public class ProcessManagerService
             if (settings.AutoOptimizePhpIni)
                 await ConfigurePhpIniAsync(phpDir);
 
-            var proc = StartHidden(phpCgi, $"-b 127.0.0.1:{pool.Port}", phpDir, new Dictionary<string, string>
+            string iniPath = Path.Combine(phpDir, "php.ini");
+            string args = File.Exists(iniPath)
+                ? $"-b 127.0.0.1:{pool.Port} -c \"{iniPath}\""
+                : $"-b 127.0.0.1:{pool.Port}";
+
+            var proc = StartHidden(phpCgi, args, phpDir, new Dictionary<string, string>
             {
                 ["PHP_FCGI_MAX_REQUESTS"] = "0",
                 ["PHP_FCGI_CHILDREN"] = "4"
@@ -118,8 +145,9 @@ public class ProcessManagerService
             if (proc != null)
             {
                 _managedPhpProcs.Add(proc);
-                pool.IsRunning = true;
-                startedCount++;
+                await Task.Delay(120);
+                pool.IsRunning = !proc.HasExited;
+                if (pool.IsRunning) startedCount++;
             }
         }
 
@@ -302,6 +330,47 @@ public class ProcessManagerService
             if (add && !string.IsNullOrWhiteSpace(domain))
                 lines.Add($"127.0.0.1 {domain.Trim()} # RBWStack");
             File.WriteAllLines(hostsPath, lines);
+        }
+        catch { }
+    }
+
+    private async Task UpdateApacheMultiPhpRoutingAsync(AppSettingsModel settings, string apacheVersion, Dictionary<string, string> sitePhpMap)
+    {
+        try
+        {
+            string apacheDir = Path.Combine(PathHelper.BinDir, "apache", apacheVersion);
+            string confPath = Path.Combine(apacheDir, "conf", "httpd.conf");
+            if (!File.Exists(confPath)) confPath = Path.Combine(apacheDir, "Apache24", "conf", "httpd.conf");
+            if (!File.Exists(confPath)) return;
+
+            string content = await File.ReadAllTextAsync(confPath);
+            int basePort = int.TryParse(settings.PhpFastCgiPort, out int bp) ? bp : 9000;
+            string activePhp = settings.ActivePhpVersion;
+            string wwwSlash = PathHelper.WwwDir.Replace('\\', '/').TrimEnd('/');
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("# BEGIN RBWSTACK MULTI-PHP");
+            foreach (var kvp in sitePhpMap)
+            {
+                string siteRel = kvp.Key.Replace('\\', '/').Trim('/');
+                string phpVer = kvp.Value;
+                int port = GetPhpPortForVersion(phpVer, activePhp, basePort);
+                string siteDir = $"{wwwSlash}/{siteRel}";
+                sb.AppendLine($"<Directory \"{siteDir}\">");
+                sb.AppendLine("    <FilesMatch \\.php$>");
+                sb.AppendLine($"        SetHandler \"proxy:fcgi://127.0.0.1:{port}//./\"");
+                sb.AppendLine("    </FilesMatch>");
+                sb.AppendLine("</Directory>");
+            }
+            sb.AppendLine("# END RBWSTACK MULTI-PHP");
+
+            string block = sb.ToString();
+            if (Regex.IsMatch(content, @"# BEGIN RBWSTACK MULTI-PHP[\s\S]*?# END RBWSTACK MULTI-PHP"))
+                content = Regex.Replace(content, @"# BEGIN RBWSTACK MULTI-PHP[\s\S]*?# END RBWSTACK MULTI-PHP", block);
+            else
+                content += "\r\n" + block;
+
+            await File.WriteAllTextAsync(confPath, content);
         }
         catch { }
     }

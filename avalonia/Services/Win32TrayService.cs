@@ -148,3 +148,4 @@ public sealed class Win32TrayService : IDisposable
         _wndProc = null;
     }
 }
+

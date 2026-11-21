@@ -241,13 +241,12 @@ public partial class MainViewModel : ObservableObject
             ConfigPath = ProcessService.GetConfigPath("mysql", activeDb, false)
         };
 
-        // Populate selectable multi-PHP FastCGI pools
+        // Populate selectable multi-PHP FastCGI pools with deterministic ports matching Apache/Nginx routing
         int basePort = int.TryParse(Settings.PhpFastCgiPort, out int bp) ? bp : 9000;
         var savedPools = Settings.SelectedPhpPools ?? new List<string>();
         var poolList = new ObservableCollection<PhpPoolVersionModel>();
-        for (int i = 0; i < phpVers.Count; i++)
+        foreach (string ver in phpVers)
         {
-            string ver = phpVers[i];
             bool isSel = savedPools.Count > 0
                 ? savedPools.Contains(ver, StringComparer.OrdinalIgnoreCase)
                 : ver.Equals(activePhp, StringComparison.OrdinalIgnoreCase);
@@ -255,7 +254,7 @@ public partial class MainViewModel : ObservableObject
             var pool = new PhpPoolVersionModel
             {
                 Version = ver,
-                Port = basePort + i,
+                Port = ProcessManagerService.GetPhpPortForVersion(ver, activePhp, basePort),
                 IsSelected = isSel
             };
             pool.PropertyChanged += (_, e) =>
@@ -264,6 +263,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     Settings.SelectedPhpPools = PhpPools.Where(p => p.IsSelected).Select(p => p.Version).ToList();
                     SettingsService.SaveSettings(Settings);
+                    OnPropertyChanged(nameof(TrayPhpLabel));
                 }
             };
             poolList.Add(pool);
