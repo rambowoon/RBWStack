@@ -103,6 +103,17 @@ public partial class MainViewModel : ObservableObject
     public bool IsProTab => ActiveTab == "pro";
     public bool IsUpdateTab => ActiveTab == "update";
     public string RunningSummaryText => $"{RunningServicesCount}/3";
+    public bool HasAnyRunningService => RunningServicesCount > 0;
+    public string TrayPhpLabel
+    {
+        get
+        {
+            var active = PhpPools.Where(p => p.IsSelected).Select(p => p.Version.Replace("php-", "", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (active.Count > 0) return "PHP " + string.Join(", ", active);
+            string v = (PhpService.SelectedVersion ?? "").Replace("php-", "", StringComparison.OrdinalIgnoreCase);
+            return string.IsNullOrEmpty(v) ? "PHP FastCGI" : $"PHP {v}";
+        }
+    }
 
     private static readonly (string Bg, string Fg)[] AvatarPalette =
     {
@@ -127,7 +138,12 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(IsUpdateTab));
     }
 
-    partial void OnRunningServicesCountChanged(int value) => OnPropertyChanged(nameof(RunningSummaryText));
+    partial void OnRunningServicesCountChanged(int value)
+    {
+        OnPropertyChanged(nameof(RunningSummaryText));
+        OnPropertyChanged(nameof(HasAnyRunningService));
+        OnPropertyChanged(nameof(TrayPhpLabel));
+    }
     partial void OnSiteSearchTextChanged(string value) => ApplySitesFilter();
     partial void OnSelectedDownloadCategoryChanged(string value) => ApplyDownloadsFilter();
 

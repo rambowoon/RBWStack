@@ -42,7 +42,10 @@
                     <!-- Right Controls: Theme + Window Controls -->
                     <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                         <Button Classes="win-ctrl" ToolTip.Tip="Chuyển chế độ Sáng / Tối" Command="{Binding ToggleThemeCommand}">
-                            <views:SvgIcon Data="{StaticResource IconSun}" Size="16" Stroke="{DynamicResource TextSecondaryBrush}" />
+                            <Panel>
+                                <views:SvgIcon Data="{StaticResource IconMoon}" Size="15" Stroke="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !IsDarkTheme}" />
+                                <views:SvgIcon Data="{StaticResource IconSun}" Size="16" Stroke="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsDarkTheme}" />
+                            </Panel>
                         </Button>
                         <Border Width="1" Height="16" Background="{DynamicResource BorderBrushMain}" Margin="4,0" />
                         <Button Classes="win-ctrl" Click="OnMinimizeClick" ToolTip.Tip="Thu nhỏ">

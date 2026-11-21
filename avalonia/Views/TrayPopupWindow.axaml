@@ -1,7 +1,8 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="using:RBWStack.Avalonia.Views"
         x:Class="RBWStack.Avalonia.Views.TrayPopupWindow"
-        Width="286"
+        Width="290"
         SizeToContent="Height"
         SystemDecorations="None"
         ShowInTaskbar="False"
@@ -18,15 +19,24 @@
         <StackPanel>
             <!-- Header -->
             <Border Padding="16,14" BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1">
-                <StackPanel Orientation="Horizontal" Spacing="11" VerticalAlignment="Center">
-                    <Border Width="34" Height="34" CornerRadius="8" Background="#111827">
-                        <Image Source="avares://RBWStack/Assets/app.ico" Width="22" Height="22" />
-                    </Border>
-                    <StackPanel VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="RBW Stack" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                        <TextBlock Text="Local Development Environment" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Classes="win-ctrl" ToolTip.Tip="Chuyển Sáng / Tối"
+                            Command="{Binding ToggleThemeCommand}">
+                        <Panel>
+                            <views:SvgIcon Data="{StaticResource IconMoon}" Size="14" Stroke="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding !IsDarkTheme}" />
+                            <views:SvgIcon Data="{StaticResource IconSun}" Size="15" Stroke="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsDarkTheme}" />
+                        </Panel>
+                    </Button>
+                    <StackPanel Orientation="Horizontal" Spacing="11" VerticalAlignment="Center">
+                        <Border Width="34" Height="34" CornerRadius="8" Background="#111827">
+                            <Image Source="avares://RBWStack/Assets/app.ico" Width="22" Height="22" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center" Spacing="1">
+                            <TextBlock Text="RBW Stack" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Local Development Environment" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </StackPanel>
                     </StackPanel>
-                </StackPanel>
+                </DockPanel>
             </Border>
 
             <!-- Section: DỊCH VỤ HỆ THỐNG -->
@@ -34,7 +44,7 @@
                 <TextBlock Text="DỊCH VỤ HỆ THỐNG" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,6" />
 
                 <!-- Row 1: Web Server -->
-                <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1" Padding="0,6">
+                <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1" Padding="0,7">
                     <Grid ColumnDefinitions="Auto,10,*,Auto">
                         <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !WebService.IsRunning}" VerticalAlignment="Center" />
                         <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding WebService.IsRunning}" VerticalAlignment="Center" />
@@ -53,11 +63,11 @@
                 </Border>
 
                 <!-- Row 2: PHP -->
-                <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1" Padding="0,6">
+                <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,0,0,1" Padding="0,7">
                     <Grid ColumnDefinitions="Auto,10,*,Auto">
                         <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !PhpService.IsRunning}" VerticalAlignment="Center" />
                         <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding PhpService.IsRunning}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding PhpService.SelectedVersion, StringFormat='PHP {0}'}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="{Binding TrayPhpLabel}" FontSize="12.5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <Button Grid.Column="3" Padding="10,3" CornerRadius="6" Cursor="Hand"
                                 Background="{DynamicResource SuccessSoftBgBrush}" BorderBrush="{DynamicResource SuccessBrush}" BorderThickness="1"
                                 IsVisible="{Binding PhpService.IsRunning}" Click="OnTogglePhpClick">
@@ -72,7 +82,7 @@
                 </Border>
 
                 <!-- Row 3: MySQL / MariaDB -->
-                <Border Padding="0,6">
+                <Border Padding="0,7">
                     <Grid ColumnDefinitions="Auto,10,*,Auto">
                         <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource TextMutedBrush}" IsVisible="{Binding !MySqlService.IsRunning}" VerticalAlignment="Center" />
                         <Ellipse Grid.Column="0" Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" IsVisible="{Binding MySqlService.IsRunning}" VerticalAlignment="Center" />
@@ -94,12 +104,22 @@
             <!-- Action Menu List -->
             <Border BorderBrush="{DynamicResource BorderBrushLight}" BorderThickness="0,1,0,0" Margin="0,4,0,0">
                 <StackPanel>
-                    <!-- Stop All / Start All -->
+                    <!-- Start All (when 0 running) -->
                     <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
+                            IsVisible="{Binding !HasAnyRunningService}"
+                            Command="{Binding StartAllCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <views:SvgIcon Data="{StaticResource IconPlay}" Size="15" Stroke="{DynamicResource SuccessTextBrush}" />
+                            <TextBlock Text="Khởi động tất cả" FontSize="13" Foreground="{DynamicResource SuccessTextBrush}" FontWeight="Medium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Stop All (when >=1 running) -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
+                            IsVisible="{Binding HasAnyRunningService}"
                             Command="{Binding StopAllCommand}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Path Data="{StaticResource IconStop}" Width="14" Height="14" Stretch="Uniform"
-                                  Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <views:SvgIcon Data="{StaticResource IconStop}" Size="15" Stroke="{DynamicResource DangerBrush}" />
                             <TextBlock Text="Dừng tất cả" FontSize="13" Foreground="{DynamicResource DangerBrush}" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -110,8 +130,7 @@
                     <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
                             Click="OnOpenMainClick">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Path Data="{StaticResource IconMaximize}" Width="14" Height="14" Stretch="Uniform"
-                                  Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                            <views:SvgIcon Data="{StaticResource IconMaximize}" Size="14" Stroke="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Mở giao diện chính" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>
@@ -122,8 +141,7 @@
                     <Button Background="Transparent" BorderThickness="0" Padding="16,11" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Cursor="Hand"
                             Click="OnExitClick">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <Path Data="{StaticResource IconPower}" Width="14" Height="14" Stretch="Uniform"
-                                  Stroke="{DynamicResource DangerBrush}" StrokeThickness="1.75" StrokeLineCap="Round" />
+                            <views:SvgIcon Data="{StaticResource IconPower}" Size="15" Stroke="{DynamicResource DangerBrush}" />
                             <TextBlock Text="Thoát ứng dụng" FontSize="13" Foreground="{DynamicResource DangerBrush}" FontWeight="Medium" VerticalAlignment="Center" />
                         </StackPanel>
                     </Button>

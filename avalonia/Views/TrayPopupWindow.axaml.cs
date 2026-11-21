@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 using RBWStack.Avalonia.ViewModels;
 using System;
 
@@ -19,15 +20,20 @@ public partial class TrayPopupWindow : Window
     public void ShowAtBottomRight()
     {
         Show();
-        var screen = Screens.Primary ?? Screens.All[0];
-        if (screen != null)
-        {
-            var wa = screen.WorkingArea;
-            int w = (int)(Width * screen.Scaling);
-            int h = (int)((Bounds.Height > 0 ? Bounds.Height : 330) * screen.Scaling);
-            Position = new PixelPoint(wa.Right - w - 12, wa.Bottom - h - 12);
-        }
+        RepositionBottomRight();
+        Dispatcher.UIThread.Post(RepositionBottomRight, DispatcherPriority.Loaded);
         Activate();
+    }
+
+    private void RepositionBottomRight()
+    {
+        var screen = Screens.Primary ?? (Screens.All.Count > 0 ? Screens.All[0] : null);
+        if (screen == null) return;
+        var wa = screen.WorkingArea;
+        int w = (int)(Width * screen.Scaling);
+        double logicalH = Bounds.Height > 0 ? Bounds.Height : 340;
+        int h = (int)(logicalH * screen.Scaling);
+        Position = new PixelPoint(wa.Right - w - 12, wa.Bottom - h - 12);
     }
 
     private async void OnToggleWebClick(object? sender, RoutedEventArgs e)
@@ -61,4 +67,3 @@ public partial class TrayPopupWindow : Window
             vm.RequestExitAction?.Invoke();
     }
 }
-

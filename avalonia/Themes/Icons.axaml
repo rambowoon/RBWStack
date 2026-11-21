@@ -9,6 +9,7 @@
     <StreamGeometry x:Key="IconCrown">M2,4 L6,15 H18 L22,4 L16,10 L12,4 L8,10 L2,4 Z M5,19 H19</StreamGeometry>
     <StreamGeometry x:Key="IconRefresh">M21,12 A9,9 0 1,1 18.36,5.64 M21,3 V9 H15</StreamGeometry>
     <StreamGeometry x:Key="IconSun">M12,17 A5,5 0 1,0 12,7 A5,5 0 1,0 12,17 Z M12,1 V3 M12,21 V23 M4.22,4.22 L5.64,5.64 M18.36,18.36 L19.78,19.78 M1,12 H3 M21,12 H23 M4.22,19.78 L5.64,18.36 M18.36,5.64 L19.78,4.22</StreamGeometry>
+    <StreamGeometry x:Key="IconMoon">M21,12.79 A9,9 0 1,1 11.21,3 A7,7 0 0,0 21,12.79 Z</StreamGeometry>
     <StreamGeometry x:Key="IconPlay">M5,3 L19,12 L5,21 Z</StreamGeometry>
     <StreamGeometry x:Key="IconStop">M6,6 H18 V18 H6 Z</StreamGeometry>
     <StreamGeometry x:Key="IconPower">M18.36,6.64 A9,9 0 1,1 5.64,6.64 M12,2 V12</StreamGeometry>
