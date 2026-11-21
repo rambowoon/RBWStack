@@ -256,13 +256,17 @@
                 <Border x:Name="Track" Width="42" Height="24" CornerRadius="12"
                         Background="{DynamicResource PillNeutralBgBrush}"
                         BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1">
-                    <Canvas x:Name="PART_SwitchKnob" Width="40" Height="22">
-                        <Panel x:Name="PART_MovingKnobs" Width="18" Height="18" Canvas.Top="2" Canvas.Left="2">
-                            <Border x:Name="Knob" Width="18" Height="18" CornerRadius="9"
-                                    Background="#FFFFFF"
-                                    BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1" />
-                        </Panel>
-                    </Canvas>
+                    <Grid>
+                        <!-- Satisfy Avalonia ToggleSwitch required template parts -->
+                        <Canvas x:Name="PART_SwitchKnob" IsVisible="False">
+                            <Panel x:Name="PART_MovingKnobs" />
+                        </Canvas>
+                        <!-- Deterministic flush-aligned knob -->
+                        <Border x:Name="Knob" Width="18" Height="18" CornerRadius="9"
+                                Background="#FFFFFF"
+                                BorderBrush="{DynamicResource BorderBrushMain}" BorderThickness="1"
+                                HorizontalAlignment="Left" VerticalAlignment="Center" Margin="2,0" />
+                    </Grid>
                 </Border>
             </ControlTemplate>
         </Setter>
@@ -271,10 +275,9 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
-    <Style Selector="ToggleSwitch:checked /template/ Panel#PART_MovingKnobs">
-        <Setter Property="Canvas.Left" Value="20" />
-    </Style>
     <Style Selector="ToggleSwitch:checked /template/ Border#Knob">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="Margin" Value="0,0,2,0" />
         <Setter Property="BorderBrush" Value="#FFFFFF" />
     </Style>
 
