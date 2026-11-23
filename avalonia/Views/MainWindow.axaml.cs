@@ -49,7 +49,7 @@ public partial class MainWindow : Window
 
         vm.RequestOpenDeployModal = site =>
         {
-            var win = new DeployModalWindow(site, vm.DemoServers);
+            var win = new DeployModalWindow(site, vm.DemoServers, vm.Settings.DbNamingRule);
             win.ShowDialog(this);
         };
 

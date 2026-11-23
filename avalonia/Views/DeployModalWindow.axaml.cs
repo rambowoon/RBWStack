@@ -15,16 +15,20 @@ public partial class DeployModalWindow : Window
     private readonly SiteItemModel? _site;
     private readonly List<DemoServerModel> _servers = new();
     private readonly DeployService _deployService = new();
+    private readonly string _dbNamingRule = "Standard ({user}_{dbname})";
     private string _lastDemoUrl = "";
 
     public DeployModalWindow() { InitializeComponent(); }
 
-    public DeployModalWindow(SiteItemModel site, IEnumerable<DemoServerModel> servers)
+    public DeployModalWindow(SiteItemModel site, IEnumerable<DemoServerModel> servers, string dbNamingRule = "Standard ({user}_{dbname})")
     {
         InitializeComponent();
         _site = site;
         _servers = servers.ToList();
+        _dbNamingRule = string.IsNullOrWhiteSpace(dbNamingRule) ? "Standard ({user}_{dbname})" : dbNamingRule;
         TxtProject.Text = $"Dự án: {site.Name} — {site.FullPath}";
+        string autoSuffix = DeployService.ResolveDbSuffix(site.Name, "", _dbNamingRule);
+        TxtDbSuffix.Watermark = string.IsNullOrEmpty(autoSuffix) ? "vd: 25797425w" : $"Để trống để tự sinh: {autoSuffix}";
         CbServer.ItemsSource = _servers.Select(s => string.IsNullOrWhiteSpace(s.Domain) ? s.Name : $"{s.Name} ({s.Domain})").ToList();
         int defIdx = _servers.FindIndex(s => s.IsDefault);
         CbServer.SelectedIndex = defIdx >= 0 ? defIdx : (_servers.Count > 0 ? 0 : -1);
@@ -66,6 +70,9 @@ public partial class DeployModalWindow : Window
         BtnOpenDemo.IsVisible = false;
         TxtLog.Text = "";
         TxtStatus.Text = "Đang triển khai...";
+        PnlProgress.IsVisible = true;
+        PbDeploy.Value = 0;
+        TxtProgress.Text = "Đang chuẩn bị...";
 
         var (ok, demoUrl) = await _deployService.DeployProjectAsync(
             _site,
@@ -79,7 +86,15 @@ public partial class DeployModalWindow : Window
             {
                 TxtLog.Text += $"[{DateTime.Now:HH:mm:ss}] {msg}\r\n";
                 TxtLog.CaretIndex = TxtLog.Text.Length;
+            }),
+            _dbNamingRule,
+            (pct, label) => Dispatcher.UIThread.Post(() =>
+            {
+                PbDeploy.Value = Math.Clamp(pct, 0, 100);
+                TxtProgress.Text = label;
             }));
+
+        PnlProgress.IsVisible = false;
 
         _lastDemoUrl = demoUrl;
         if (ok && !string.IsNullOrEmpty(_lastDemoUrl))

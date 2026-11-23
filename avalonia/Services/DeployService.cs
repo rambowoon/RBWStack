@@ -7,6 +7,7 @@ using System.IO.Compression;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -65,7 +66,9 @@ public class DeployService
         bool useSsl,
         bool onlyDb,
         bool use7Zip,
-        Action<string> log)
+        Action<string> log,
+        string dbNamingRule = "Standard ({user}_{dbname})",
+        Action<double, string>? onProgress = null)
     {
         string activeDomain = !string.IsNullOrWhiteSpace(overrideDomain) ? overrideDomain.Trim() : (server.Domain ?? "").Trim();
         if (string.IsNullOrWhiteSpace(server.Host) || string.IsNullOrWhiteSpace(server.Username) || string.IsNullOrWhiteSpace(activeDomain))
@@ -101,28 +104,19 @@ public class DeployService
                 if (use7Zip && File.Exists(exe7z))
                 {
                     log("📦 Đang nén mã nguồn bằng 7-Zip...");
+                    onProgress?.Invoke(0, "Đang quét & nén mã nguồn bằng 7-Zip...");
                     if (File.Exists(zipPath)) File.Delete(zipPath);
-                    int code = await Task.Run(() =>
-                    {
-                        using var p = Process.Start(new ProcessStartInfo
-                        {
-                            FileName = exe7z,
-                            Arguments = $"a -tzip -mx=1 \"{zipPath}\" *",
-                            WorkingDirectory = site.FullPath,
-                            UseShellExecute = false,
-                            CreateNoWindow = true
-                        });
-                        p?.WaitForExit();
-                        return p?.ExitCode ?? -1;
-                    });
+                    int code = await Run7ZipWithProgressAsync(exe7z, site.FullPath, zipPath, onProgress);
                     if (code != 0) throw new Exception($"7-Zip thoát với mã lỗi {code}");
                 }
                 else
                 {
                     log("📦 Đang nén mã nguồn (ZIP)...");
+                    onProgress?.Invoke(0, "Đang nén mã nguồn (ZIP)...");
                     if (File.Exists(zipPath)) File.Delete(zipPath);
-                    await Task.Run(() => ZipFile.CreateFromDirectory(site.FullPath, zipPath, CompressionLevel.Fastest, false));
+                    await CreateZipWithProgressAsync(site.FullPath, zipPath, onProgress);
                 }
+                onProgress?.Invoke(100, $"Nén xong: {new FileInfo(zipPath).Length / 1024.0 / 1024.0:N2} MB");
                 log($"✅ Nén xong: {new FileInfo(zipPath).Length / 1024.0 / 1024.0:N2} MB");
             }
 
@@ -131,77 +125,98 @@ public class DeployService
             if (!string.IsNullOrEmpty(dbName))
             {
                 log($"🗄 Đang export database `{dbName}`...");
-                bool dumped = await ExportDatabaseAsync(dbHost, dbPort, dbUser, dbPass, dbName, sqlPath);
-                if (dumped && File.Exists(sqlPath))
+                var (dumped, dumpErr) = await ExportDatabaseAsync(dbHost, dbPort, dbUser, dbPass, dbName, sqlPath);
+                if (dumped && File.Exists(sqlPath) && new FileInfo(sqlPath).Length > 0)
+                {
                     log($"✅ Export SQL xong: {new FileInfo(sqlPath).Length / 1024.0:N1} KB");
+                }
                 else
-                    log("⚠️ Không thể export SQL (tiếp tục không kèm file SQL).");
+                {
+                    try { if (File.Exists(sqlPath)) File.Delete(sqlPath); } catch { }
+                    string reason = string.IsNullOrWhiteSpace(dumpErr) ? "MySQL chưa chạy hoặc sai thông tin .env" : dumpErr;
+                    if (onlyDb)
+                    {
+                        log($"❌ Không thể export SQL (`{dbName}`): {reason}");
+                        return (false, demoUrl);
+                    }
+                    log($"⚠️ Không thể export SQL ({reason}) — tiếp tục không kèm file SQL.");
+                }
+            }
+            else if (onlyDb)
+            {
+                log("❌ Không tìm thấy tên database (DB_DATABASE) trong file .env của dự án.");
+                return (false, demoUrl);
             }
 
             // Step 3: DirectAdmin DB create/sync
             string mainUser = server.Username.Contains('_') ? server.Username.Split('_')[0] : server.Username;
-            string dbSuffix = string.IsNullOrWhiteSpace(customDbSuffix)
-                ? Regex.Replace(site.Name, @"[^a-zA-Z0-9]", "").ToLowerInvariant()
-                : customDbSuffix.Trim();
-            if (dbSuffix.Length > 16) dbSuffix = dbSuffix[..16];
+            string dbSuffix = ResolveDbSuffix(site.Name, customDbSuffix, dbNamingRule);
             string finalDbName = $"{mainUser}_{dbSuffix}";
             string finalDbPass = GenerateRandomPassword();
 
             if (!onlyDb)
             {
-                log($"🛠 Đang tạo/đồng bộ Database `{finalDbName}` trên DirectAdmin...");
-                string daPort = string.IsNullOrWhiteSpace(server.DaPort) ? "1111" : server.DaPort.Trim();
-                string daBody = $"action=create&name={Uri.EscapeDataString(dbSuffix)}&user={Uri.EscapeDataString(dbSuffix)}&passwd={Uri.EscapeDataString(finalDbPass)}&passwd2={Uri.EscapeDataString(finalDbPass)}&create=Create";
-                string daRes = await CallDirectAdminApiAsync(server.Host, daPort, mainUser, server.Password, daBody, "CMD_API_DATABASES");
-                if (daRes.Contains("already exists", StringComparison.OrdinalIgnoreCase) || daRes.Contains("500"))
-                {
-                    log("  -> Database đã tồn tại, đồng bộ lại mật khẩu...");
-                    string modBody = $"action=modify&database={Uri.EscapeDataString(finalDbName)}&user={Uri.EscapeDataString(finalDbName)}&passwd={Uri.EscapeDataString(finalDbPass)}&passwd2={Uri.EscapeDataString(finalDbPass)}";
-                    await CallDirectAdminApiAsync(server.Host, daPort, mainUser, server.Password, modBody, "CMD_API_DB_USER");
-                }
-                else
-                {
-                    log("✅ DirectAdmin: Đã sẵn sàng Database.");
-                }
+                await EnsureDirectAdminDatabaseAsync(server, mainUser, dbSuffix, finalDbName, finalDbPass, log);
             }
 
-            // Step 4: Upload bridge.php, dist.zip, dist.sql via FTP
+            // Step 4: Ensure remote FTP directory exists, then upload bridge.php, dist.zip, dist.sql
+            await EnsureFtpDirectoryAsync(ftpBase, server.Username, server.Password);
+
             string bridgePath = PathHelper.GetDataFile("bridge.php");
             if (File.Exists(bridgePath))
             {
                 log("☁ Uploading bridge.php...");
-                await UploadFtpAsync(ftpBase + "bridge.php", server.Username, server.Password, bridgePath);
+                onProgress?.Invoke(0, "Đang upload bridge.php...");
+                await UploadFtpAsync(ftpBase + "bridge.php", server.Username, server.Password, bridgePath, onProgress, "bridge.php");
             }
 
             if (!onlyDb && File.Exists(zipPath))
             {
                 log("☁ Uploading dist.zip...");
-                await UploadFtpAsync(ftpBase + "dist.zip", server.Username, server.Password, zipPath);
+                onProgress?.Invoke(0, "Đang upload dist.zip...");
+                await UploadFtpAsync(ftpBase + "dist.zip", server.Username, server.Password, zipPath, onProgress, "dist.zip");
             }
 
-            if (File.Exists(sqlPath))
+            if (File.Exists(sqlPath) && new FileInfo(sqlPath).Length > 0)
             {
                 log("☁ Uploading dist.sql...");
-                await UploadFtpAsync(ftpBase + "dist.sql", server.Username, server.Password, sqlPath);
+                onProgress?.Invoke(0, "Đang upload dist.sql...");
+                await UploadFtpAsync(ftpBase + "dist.sql", server.Username, server.Password, sqlPath, onProgress, "dist.sql");
             }
 
-            // Step 5: Trigger bridge.php
+            // Step 5: Trigger bridge.php (follow 301/302/307/308 redirects including HTTPS<->HTTP while preserving POST)
             log($"⚡ Đang kích hoạt bridge: {bridgeUrl}");
-            using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
-            using var http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+            onProgress?.Invoke(95, "Đang chạy Bridge trên server...");
 
-            var formDict = new Dictionary<string, string> { ["clear_db"] = "1" };
+            var formDict = new Dictionary<string, string>
+            {
+                ["clear_db"] = "1",
+                ["app_config"] = $"{{\"app_url\":\"{demoUrl}\",\"ssl\":{(useSsl ? "true" : "false")},\"skip_lock\":true}}"
+            };
             if (!onlyDb)
             {
                 formDict["db_config"] = $"{{\"host\":\"localhost\",\"name\":\"{finalDbName}\",\"user\":\"{finalDbName}\",\"pass\":\"{finalDbPass}\"}}";
-                formDict["app_config"] = $"{{\"app_url\":\"{demoUrl}\",\"ssl\":{(useSsl ? "true" : "false")},\"skip_lock\":true}}";
             }
 
-            var resp = await http.PostAsync(bridgeUrl, new FormUrlEncodedContent(formDict));
-            string body = await resp.Content.ReadAsStringAsync();
-            log($"📡 Bridge HTTP {(int)resp.StatusCode}: {body}");
+            var (statusCode, body, finalUrl) = await PostBridgeWithRedirectAsync(bridgeUrl, formDict, TimeSpan.FromMinutes(10), log);
+            if (!string.IsNullOrEmpty(finalUrl) && Uri.TryCreate(finalUrl, UriKind.Absolute, out var finalUri))
+                demoUrl = $"{finalUri.Scheme}://{finalUri.Authority}/{relPath}";
 
-            bool ok = resp.IsSuccessStatusCode && body.Contains("success", StringComparison.OrdinalIgnoreCase);
+            bool ok = LogBridgeResponse(statusCode, body, log);
+
+            if (!ok && onlyDb && ShouldRetryDbWithDirectAdminSync(body))
+            {
+                log("🔄 Không thể kết nối DB bằng .env trên host. Tự động đồng bộ lại mật khẩu trên DirectAdmin & cập nhật .env...");
+                await EnsureDirectAdminDatabaseAsync(server, mainUser, dbSuffix, finalDbName, finalDbPass, log);
+                await Task.Delay(2000);
+
+                formDict["db_config"] = $"{{\"host\":\"localhost\",\"name\":\"{finalDbName}\",\"user\":\"{finalDbName}\",\"pass\":\"{finalDbPass}\"}}";
+                string retryUrl = string.IsNullOrEmpty(finalUrl) ? bridgeUrl : finalUrl;
+                var (retryCode, retryBody, _) = await PostBridgeWithRedirectAsync(retryUrl, formDict, TimeSpan.FromMinutes(10), log);
+                ok = LogBridgeResponse(retryCode, retryBody, log);
+            }
+
+            onProgress?.Invoke(100, ok ? "Deploy hoàn tất!" : "Có lỗi từ Bridge");
             return (ok, demoUrl);
         }
         catch (Exception ex)
@@ -225,13 +240,8 @@ public class DeployService
             string scheme = useSsl ? "https://" : "http://";
             string cleanupUrl = $"{scheme}{activeDomain}/{relPath}/bridge.php?action=cleanup";
             log($"🧹 Đang dọn dẹp file tạm trên {cleanupUrl}...");
-
-            using var handler = new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true };
-            using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
-            var resp = await http.PostAsync(cleanupUrl, new FormUrlEncodedContent(new Dictionary<string, string>()));
-            string body = await resp.Content.ReadAsStringAsync();
-            log($"📡 Cleanup HTTP {(int)resp.StatusCode}: {body}");
-            return resp.IsSuccessStatusCode;
+            var (statusCode, body, _) = await PostBridgeWithRedirectAsync(cleanupUrl, new Dictionary<string, string>(), TimeSpan.FromSeconds(30), log);
+            return LogBridgeResponse(statusCode, body, log);
         }
         catch (Exception ex)
         {
@@ -263,7 +273,7 @@ public class DeployService
         return (host, port, db, user, pass);
     }
 
-    private static async Task<bool> ExportDatabaseAsync(string host, string port, string user, string pass, string db, string outSql)
+    private static async Task<(bool Ok, string Error)> ExportDatabaseAsync(string host, string port, string user, string pass, string db, string outSql)
     {
         string dumpExe = "mysqldump";
         string mysqlDir = Path.Combine(PathHelper.BinDir, "mysql");
@@ -287,13 +297,119 @@ public class DeployService
                     FileName = dumpExe,
                     Arguments = args,
                     UseShellExecute = false,
-                    CreateNoWindow = true
+                    CreateNoWindow = true,
+                    RedirectStandardError = true
                 });
-                p?.WaitForExit(120000);
-                return p?.ExitCode == 0 && File.Exists(outSql) && new FileInfo(outSql).Length > 0;
+                if (p == null) return (false, "Không khởi chạy được mysqldump");
+                string err = p.StandardError.ReadToEnd();
+                p.WaitForExit(120000);
+                bool ok = p.ExitCode == 0 && File.Exists(outSql) && new FileInfo(outSql).Length > 0;
+                return (ok, err.Trim());
             }
-            catch { return false; }
+            catch (Exception ex) { return (false, ex.Message); }
         });
+    }
+
+    private static async Task<(int StatusCode, string Body, string FinalUrl)> PostBridgeWithRedirectAsync(
+        string url, Dictionary<string, string> formDict, TimeSpan timeout, Action<string> log)
+    {
+        using var handler = new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
+        };
+        using var http = new HttpClient(handler) { Timeout = timeout };
+
+        string currentUrl = url;
+        for (int hop = 0; hop < 4; hop++)
+        {
+            var resp = await http.PostAsync(currentUrl, new FormUrlEncodedContent(formDict));
+            int code = (int)resp.StatusCode;
+            if (code is 301 or 302 or 303 or 307 or 308 && resp.Headers.Location != null)
+            {
+                Uri nextUri = resp.Headers.Location.IsAbsoluteUri
+                    ? resp.Headers.Location
+                    : new Uri(new Uri(currentUrl), resp.Headers.Location);
+                currentUrl = nextUri.ToString();
+                log($"↪ Chuyển hướng HTTP {code} → {currentUrl}");
+                continue;
+            }
+            string body = await resp.Content.ReadAsStringAsync();
+            return (code, body, currentUrl);
+        }
+        return (0, "{\"status\":\"error\",\"message\":\"Quá nhiều lần chuyển hướng (redirect loop)\"}", currentUrl);
+    }
+
+    private static bool LogBridgeResponse(int statusCode, string body, Action<string> log)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+        {
+            log($"📡 Bridge HTTP {statusCode}: (Không có phản hồi)");
+            return statusCode is >= 200 and < 300;
+        }
+
+        try
+        {
+            string jsonBody = body.Trim();
+            int jsonStart = jsonBody.LastIndexOf("{\"status\"", StringComparison.OrdinalIgnoreCase);
+            if (jsonStart > 0) jsonBody = jsonBody[jsonStart..];
+
+            using var doc = JsonDocument.Parse(jsonBody);
+            var root = doc.RootElement;
+            string status = root.TryGetProperty("status", out var sProp) ? (sProp.GetString() ?? "") : "";
+            string msg = root.TryGetProperty("message", out var mProp) ? (mProp.GetString() ?? "") : "";
+            bool ok = status.Equals("success", StringComparison.OrdinalIgnoreCase);
+
+            log($"📡 Bridge HTTP {statusCode} — Trạng thái: {(ok ? "Thành công" : (string.IsNullOrEmpty(status) ? "Lỗi" : status))}");
+            if (!string.IsNullOrWhiteSpace(msg))
+                log($"   {(ok ? "✅" : "❌")} {msg}");
+
+            if (root.TryGetProperty("logs", out var logsProp) && logsProp.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var entry in logsProp.EnumerateArray())
+                {
+                    string line = entry.GetString() ?? "";
+                    if (!string.IsNullOrWhiteSpace(line))
+                        log($"   • {line}");
+                }
+            }
+            return statusCode is >= 200 and < 300 && ok;
+        }
+        catch
+        {
+            string plain = WebUtility.HtmlDecode(Regex.Replace(body, "<[^>]+>", " "));
+            plain = Regex.Replace(plain, @"\s+", " ").Trim();
+            if (plain.Length > 350) plain = plain[..350] + "...";
+            log($"📡 Bridge HTTP {statusCode}: {plain}");
+            return false;
+        }
+    }
+
+    private static bool ShouldRetryDbWithDirectAdminSync(string body)
+    {
+        return body.Contains("Access denied", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("Unknown database", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("SQLSTATE[HY000]", StringComparison.OrdinalIgnoreCase)
+            || body.Contains("file .env", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task EnsureDirectAdminDatabaseAsync(
+        DemoServerModel server, string mainUser, string dbSuffix, string finalDbName, string finalDbPass, Action<string> log)
+    {
+        log($"🛠 Đang tạo/đồng bộ Database `{finalDbName}` trên DirectAdmin...");
+        string daPort = string.IsNullOrWhiteSpace(server.DaPort) ? "1111" : server.DaPort.Trim();
+        string daBody = $"action=create&name={Uri.EscapeDataString(dbSuffix)}&user={Uri.EscapeDataString(dbSuffix)}&passwd={Uri.EscapeDataString(finalDbPass)}&passwd2={Uri.EscapeDataString(finalDbPass)}&create=Create";
+        string daRes = await CallDirectAdminApiAsync(server.Host, daPort, mainUser, server.Password, daBody, "CMD_API_DATABASES");
+        if (daRes.Contains("already exists", StringComparison.OrdinalIgnoreCase) || daRes.Contains("500"))
+        {
+            log("  -> Database đã tồn tại, đồng bộ lại mật khẩu...");
+            string modBody = $"action=modify&database={Uri.EscapeDataString(finalDbName)}&user={Uri.EscapeDataString(finalDbName)}&passwd={Uri.EscapeDataString(finalDbPass)}&passwd2={Uri.EscapeDataString(finalDbPass)}";
+            await CallDirectAdminApiAsync(server.Host, daPort, mainUser, server.Password, modBody, "CMD_API_DB_USER");
+        }
+        else
+        {
+            log("✅ DirectAdmin: Đã sẵn sàng Database.");
+        }
     }
 
     private static async Task<string> CallDirectAdminApiAsync(string host, string port, string user, string pass, string body, string endpoint)
@@ -325,7 +441,147 @@ public class DeployService
         return sb.ToString();
     }
 
-    private static async Task UploadFtpAsync(string ftpUrl, string user, string pass, string localFile)
+    public static string ResolveDbSuffix(string siteName, string customDbSuffix, string dbNamingRule)
+    {
+        string raw;
+        if (!string.IsNullOrWhiteSpace(customDbSuffix))
+        {
+            raw = customDbSuffix.Trim();
+        }
+        else if (!string.IsNullOrWhiteSpace(dbNamingRule) && dbNamingRule.Contains("Compact", StringComparison.OrdinalIgnoreCase))
+        {
+            var parts = siteName.Split('_', StringSplitOptions.RemoveEmptyEntries);
+            raw = parts.Length >= 2 ? parts[^1] : siteName;
+        }
+        else
+        {
+            raw = siteName;
+        }
+
+        string cleaned = Regex.Replace(raw, @"[^a-zA-Z0-9]", "").ToLowerInvariant();
+        if (cleaned.Length > 16) cleaned = cleaned[..16];
+        return cleaned;
+    }
+
+    private static async Task<int> Run7ZipWithProgressAsync(string exe7z, string workingDir, string zipPath, Action<double, string>? onProgress)
+    {
+        return await Task.Run(() =>
+        {
+            using var p = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = exe7z,
+                    Arguments = $"a -tzip -mx=1 -bsp1 \"{zipPath}\" *",
+                    WorkingDirectory = workingDir,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+
+            double lastPct = 0;
+            p.OutputDataReceived += (_, e) =>
+            {
+                if (string.IsNullOrEmpty(e.Data)) return;
+                var m = Regex.Match(e.Data, @"(\d{1,3})%");
+                if (m.Success && double.TryParse(m.Groups[1].Value, out double pct))
+                {
+                    lastPct = Math.Clamp(pct, 0, 100);
+                    string sizeInfo = "";
+                    try { if (File.Exists(zipPath)) sizeInfo = $" ({new FileInfo(zipPath).Length / 1024.0 / 1024.0:N1} MB)"; } catch { }
+                    onProgress?.Invoke(lastPct, $"Đang nén 7-Zip... {lastPct:0}%{sizeInfo}");
+                }
+            };
+
+            p.Start();
+            p.BeginOutputReadLine();
+
+            while (!p.HasExited)
+            {
+                System.Threading.Thread.Sleep(300);
+                if (lastPct <= 0 && File.Exists(zipPath))
+                {
+                    try
+                    {
+                        double mb = new FileInfo(zipPath).Length / 1024.0 / 1024.0;
+                        if (mb > 0) onProgress?.Invoke(5, $"Đang nén 7-Zip... ({mb:N1} MB)");
+                    }
+                    catch { }
+                }
+            }
+
+            p.WaitForExit();
+            return p.ExitCode;
+        });
+    }
+
+    private static async Task CreateZipWithProgressAsync(string sourceDir, string zipPath, Action<double, string>? onProgress)
+    {
+        await Task.Run(() =>
+        {
+            var files = Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories);
+            long totalBytes = 0;
+            foreach (var f in files)
+            {
+                try { totalBytes += new FileInfo(f).Length; } catch { }
+            }
+            if (totalBytes <= 0) totalBytes = 1;
+
+            long processedBytes = 0;
+            var lastReport = DateTime.MinValue;
+
+            using var archive = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+            for (int i = 0; i < files.Length; i++)
+            {
+                string file = files[i];
+                string entryName = Path.GetRelativePath(sourceDir, file).Replace('\\', '/');
+                try
+                {
+                    archive.CreateEntryFromFile(file, entryName, CompressionLevel.Fastest);
+                    processedBytes += new FileInfo(file).Length;
+                }
+                catch { }
+
+                if ((DateTime.UtcNow - lastReport).TotalMilliseconds > 150 || i == files.Length - 1)
+                {
+                    lastReport = DateTime.UtcNow;
+                    double pct = Math.Clamp((double)processedBytes / totalBytes * 100.0, 0, 100);
+                    onProgress?.Invoke(pct, $"Đang nén ZIP... {pct:0}% ({i + 1}/{files.Length} tệp)");
+                }
+            }
+        });
+    }
+
+    private static async Task EnsureFtpDirectoryAsync(string ftpDirUrl, string user, string pass)
+    {
+        if (!Uri.TryCreate(ftpDirUrl, UriKind.Absolute, out var uri)) return;
+        string[] segments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        string currentPath = "";
+        foreach (string seg in segments)
+        {
+            currentPath += "/" + seg;
+            string targetUrl = $"{uri.Scheme}://{uri.Authority}{currentPath}";
+            try
+            {
+#pragma warning disable SYSLIB0014
+                var req = (FtpWebRequest)WebRequest.Create(targetUrl);
+#pragma warning restore SYSLIB0014
+                req.Method = WebRequestMethods.Ftp.MakeDirectory;
+                req.Credentials = new NetworkCredential(user, pass);
+                req.UsePassive = true;
+                req.Timeout = 10000;
+                using var resp = (FtpWebResponse)await req.GetResponseAsync();
+            }
+            catch
+            {
+                // Ignore 550 (directory already exists or parent level restricted)
+            }
+        }
+    }
+
+    private static async Task UploadFtpAsync(string ftpUrl, string user, string pass, string localFile, Action<double, string>? onProgress = null, string? displayFileName = null)
     {
 #pragma warning disable SYSLIB0014
         var req = (FtpWebRequest)WebRequest.Create(ftpUrl);
@@ -335,10 +591,31 @@ public class DeployService
         req.UseBinary = true;
         req.UsePassive = true;
 
-        byte[] data = await File.ReadAllBytesAsync(localFile);
-        req.ContentLength = data.Length;
-        await using var stream = await req.GetRequestStreamAsync();
-        await stream.WriteAsync(data);
+        long totalBytes = new FileInfo(localFile).Length;
+        req.ContentLength = totalBytes;
+
+        byte[] buffer = new byte[65536];
+        long sent = 0;
+        var lastReport = DateTime.MinValue;
+        string labelName = displayFileName ?? Path.GetFileName(localFile);
+
+        await using (var fs = File.OpenRead(localFile))
+        await using (var stream = await req.GetRequestStreamAsync())
+        {
+            int read;
+            while ((read = await fs.ReadAsync(buffer)) > 0)
+            {
+                await stream.WriteAsync(buffer.AsMemory(0, read));
+                sent += read;
+                if (onProgress != null && totalBytes > 0 && ((DateTime.UtcNow - lastReport).TotalMilliseconds > 150 || sent == totalBytes))
+                {
+                    lastReport = DateTime.UtcNow;
+                    double pct = Math.Clamp((double)sent / totalBytes * 100.0, 0, 100);
+                    onProgress(pct, $"Đang upload {labelName}... {pct:0}% ({sent / 1024.0 / 1024.0:N1} / {totalBytes / 1024.0 / 1024.0:N1} MB)");
+                }
+            }
+        }
+
         using var resp = (FtpWebResponse)await req.GetResponseAsync();
     }
 }

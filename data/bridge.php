@@ -1,6 +1,6 @@
 <?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
+ini_set('display_errors', 0);
 @set_time_limit(600);
 @ini_set('max_execution_time', 600);
 
@@ -412,9 +412,12 @@ class RamboWoonBridge
         $pass = $dbConfig['pass'] ?? '';
 
         try {
+            $initCmdAttr = class_exists('Pdo\\Mysql') && defined('Pdo\\Mysql::ATTR_INIT_COMMAND')
+                ? \Pdo\Mysql::ATTR_INIT_COMMAND
+                : PDO::MYSQL_ATTR_INIT_COMMAND;
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
+                $initCmdAttr => "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_unicode_ci'"
             ];
             return new PDO("mysql:host={$host};dbname={$dbname};charset=utf8mb4", $user, $pass, $options);
         } catch (PDOException $e) {
@@ -516,6 +519,8 @@ class RamboWoonBridge
         if (!in_array('DB_USERNAME', $processedKeys) && !empty($dbConfig['user'])) $newLines[] = "DB_USERNAME=" . $dbConfig['user'];
         if (!in_array('DB_PASSWORD', $processedKeys) && !empty($dbConfig['pass'])) $newLines[] = "DB_PASSWORD=" . $dbConfig['pass'];
         if (!in_array('DB_HOST', $processedKeys)) $newLines[] = "DB_HOST=localhost";
+        if (!in_array('SITE_PATH', $processedKeys) && !empty($fullUrl)) $newLines[] = "SITE_PATH=" . $sitePath;
+        if (!in_array('APP_URL', $processedKeys) && !empty($cleanUrl)) $newLines[] = "APP_URL=" . $cleanUrl . '${SITE_PATH}';
         if (!in_array('ENVIRONMENT', $processedKeys)) $newLines[] = "ENVIRONMENT=production";
 
         if (!empty($appConfig['is_production']) && !empty($appConfig['turnstile_sitekey'])) {
@@ -618,12 +623,34 @@ class RamboWoonBridge
             die(json_encode(['status' => 'error', 'message' => 'Lỗi: Không tìm thấy tệp dist.sql trên server.', 'logs' => $results]));
         }
 
-        $dbConfig = $this->getDbConfigFromEnv();
+        $dbRaw = $_POST['db_config'] ?? null;
+        $appRaw = $_POST['app_config'] ?? null;
+        $dbPost = !empty($dbRaw) ? json_decode($dbRaw, true) : null;
+        $appConfig = !empty($appRaw) ? json_decode($appRaw, true) : null;
+
+        if (!empty($dbPost) && !empty($dbPost['name'])) {
+            $this->updateEnv($dbPost, $appConfig);
+            $dbConfig = $dbPost;
+            $results[] = "Updated server .env with synced DB config (DB=" . $dbConfig['name'] . ")";
+        } else {
+            if (!empty($appConfig)) {
+                $this->updateEnv([], $appConfig);
+                $results[] = "Updated server .env (SITE_PATH & APP_URL)";
+            }
+            $dbConfig = $this->getDbConfigFromEnv();
+            if (!empty($dbConfig['name'])) {
+                $results[] = "Loaded DB config from server .env (Host=" . ($dbConfig['host'] ?? 'localhost') . ", DB=" . ($dbConfig['name'] ?? 'none') . ")";
+            }
+        }
+
+        if (!empty($appConfig)) {
+            $this->updateHtaccess($appConfig);
+            $results[] = "Htaccess configured (SSL: " . (!empty($appConfig['ssl']) ? 'On' : 'Off') . ")";
+        }
+
         if (empty($dbConfig['name'])) {
             die(json_encode(['status' => 'error', 'message' => 'Lỗi: Không tìm thấy thông tin cấu hình database trong file .env trên server.', 'logs' => $results]));
         }
-
-        $results[] = "Loaded DB config from server .env (Host=" . ($dbConfig['host'] ?? 'localhost') . ", DB=" . ($dbConfig['name'] ?? 'none') . ")";
         $isSqlSuccess = false;
 
         $clearDb = isset($_POST['clear_db']) ? (int)$_POST['clear_db'] : 0;

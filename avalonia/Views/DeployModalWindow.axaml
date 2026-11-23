@@ -6,7 +6,7 @@
         MinWidth="640" MinHeight="480"
         WindowStartupLocation="CenterOwner"
         Title="Deploy Demo Hosting">
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="22">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="22">
         <!-- Header -->
         <DockPanel Grid.Row="0" Margin="0,0,0,14">
             <Button x:Name="BtnOpenDemo" DockPanel.Dock="Right" Classes="btn-outline" IsVisible="False" Click="OnOpenDemoClick">
@@ -61,14 +61,20 @@
             </Grid>
         </Border>
 
+        <!-- Progress Bar -->
+        <StackPanel Grid.Row="2" x:Name="PnlProgress" IsVisible="False" Spacing="5" Margin="0,0,0,10">
+            <TextBlock x:Name="TxtProgress" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource AccentTextBrush}" Text="Đang chuẩn bị..." />
+            <ProgressBar x:Name="PbDeploy" Minimum="0" Maximum="100" Height="6" Foreground="{DynamicResource AccentBrush}" />
+        </StackPanel>
+
         <!-- Console Log -->
-        <TextBox Grid.Row="2" x:Name="TxtLog" IsReadOnly="True" AcceptsReturn="True"
+        <TextBox Grid.Row="3" x:Name="TxtLog" IsReadOnly="True" AcceptsReturn="True"
                  FontFamily="Cascadia Code, Consolas, monospace" FontSize="12"
                  TextWrapping="Wrap"
                  ScrollViewer.VerticalScrollBarVisibility="Auto" />
 
         <!-- Footer -->
-        <DockPanel Grid.Row="3" Margin="0,14,0,0">
+        <DockPanel Grid.Row="4" Margin="0,14,0,0">
             <TextBlock x:Name="TxtStatus" VerticalAlignment="Center" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" Text="Sẵn sàng deploy" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
                 <Button x:Name="BtnCleanup" Classes="btn-outline" Click="OnCleanupClick">
