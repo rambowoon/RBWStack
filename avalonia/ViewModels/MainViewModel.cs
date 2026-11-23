@@ -228,6 +228,30 @@ public partial class MainViewModel : ObservableObject
             ConfigPath = ProcessService.GetConfigPath("php", activePhp, false)
         };
 
+        if (activePhp != "Chưa cài đặt" && Settings.ActivePhpVersion != activePhp)
+        {
+            Settings.ActivePhpVersion = activePhp;
+            SettingsService.SaveSettings(Settings);
+        }
+
+        PhpService.PropertyChanged += async (_, e) =>
+        {
+            if (e.PropertyName == nameof(ServiceCardModel.SelectedVersion) && !string.IsNullOrEmpty(PhpService.SelectedVersion) && PhpService.SelectedVersion != "Chưa cài đặt")
+            {
+                Settings.ActivePhpVersion = PhpService.SelectedVersion;
+                PhpService.ConfigPath = ProcessService.GetConfigPath("php", PhpService.SelectedVersion, false);
+                SettingsService.SaveSettings(Settings);
+
+                int basePortLocal = int.TryParse(Settings.PhpFastCgiPort, out int bpLocal) ? bpLocal : 9000;
+                foreach (var p in PhpPools)
+                    p.Port = ProcessManagerService.GetPhpPortForVersion(p.Version, Settings.ActivePhpVersion, basePortLocal);
+
+                if (PhpService.IsRunning)
+                    await ToggleServiceAsync(PhpService, true);
+                await ProcessService.ReloadOrRestartWebServerAsync(Settings, WebService.SelectedVersion, PhpService.SelectedVersion, _sitePhpMap, _siteVHostMap, _allSites);
+            }
+        };
+
         MySqlService = new ServiceCardModel
         {
             Key = "mysql",
@@ -313,7 +337,7 @@ public partial class MainViewModel : ObservableObject
         {
             if (targetState)
             {
-                var res = await ProcessService.StartWebServerAsync(Settings, svc.SelectedVersion, _sitePhpMap, _siteVHostMap);
+                var res = await ProcessService.StartWebServerAsync(Settings, svc.SelectedVersion, PhpService.SelectedVersion, _sitePhpMap, _siteVHostMap, _allSites);
                 TopStatusText = res.Message;
             }
             else
@@ -474,12 +498,7 @@ public partial class MainViewModel : ObservableObject
             site.PropertyChanged += (s, e) =>
             {
                 if (e.PropertyName == nameof(SiteItemModel.SelectedPhpVersion) && s is SiteItemModel item)
-                {
-                    _sitePhpMap[item.RelativePath] = item.SelectedPhpVersion;
-                    SettingsService.SaveJsonDict("sites.json", _sitePhpMap);
-                    _ = ProcessService.ConfigureIonCubeOnlyAsync(Path.Combine(PathHelper.BinDir, "php", item.SelectedPhpVersion));
-                    TopStatusText = $"Đã đặt {item.Name} dùng {item.SelectedPhpVersion} (đã kích hoạt ionCube)";
-                }
+                    _ = ApplySitePhpVersionSwitchAsync(item);
             };
 
             _allSites.Add(site);
@@ -487,6 +506,53 @@ public partial class MainViewModel : ObservableObject
 
         SitesCount = _allSites.Count;
         ApplySitesFilter();
+    }
+
+    private async Task ApplySitePhpVersionSwitchAsync(SiteItemModel item)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(item.SelectedPhpVersion) || item.SelectedPhpVersion == "Chưa cài đặt")
+                return;
+
+            _sitePhpMap[item.RelativePath] = item.SelectedPhpVersion;
+            SettingsService.SaveJsonDict("sites.json", _sitePhpMap);
+            TopStatusText = $"Đang chuyển {item.Name} sang {item.SelectedPhpVersion}...";
+
+            var pool = PhpPools.FirstOrDefault(p => p.Version.Equals(item.SelectedPhpVersion, StringComparison.OrdinalIgnoreCase));
+            int port = pool?.Port ?? ProcessManagerService.GetPhpPortForVersion(item.SelectedPhpVersion, PhpService.SelectedVersion);
+
+            if (pool != null)
+            {
+                if (!pool.IsSelected)
+                {
+                    pool.IsSelected = true;
+                    Settings.SelectedPhpPools = PhpPools.Where(p => p.IsSelected).Select(p => p.Version).ToList();
+                    SettingsService.SaveSettings(Settings);
+                    OnPropertyChanged(nameof(TrayPhpLabel));
+                }
+
+                // Ensure the chosen PHP version FastCGI pool is actually running so Apache/Nginx never returns 503
+                await ProcessService.EnsurePhpPoolRunningAsync(Settings, pool);
+            }
+            else
+            {
+                await ProcessService.EnsurePhpPoolRunningAsync(Settings, new PhpPoolVersionModel
+                {
+                    Version = item.SelectedPhpVersion,
+                    Port = port,
+                    IsSelected = true
+                });
+            }
+
+            await ProcessService.ReloadOrRestartWebServerAsync(Settings, WebService.SelectedVersion, PhpService.SelectedVersion, _sitePhpMap, _siteVHostMap, _allSites);
+            RefreshServiceStates();
+            TopStatusText = $"Đã chuyển {item.Name} sang {item.SelectedPhpVersion} (Port {port})";
+        }
+        catch (Exception ex)
+        {
+            TopStatusText = $"Lỗi chuyển PHP: {ex.Message}";
+        }
     }
 
     private void ApplySitesFilter()

@@ -8,7 +8,7 @@ namespace RBWStack.Avalonia.Services;
 
 public class UpdateService
 {
-    public const string CurrentVersion = "4.0.1";
+    public const string CurrentVersion = "4.0.2";
 
     public async Task<GithubReleaseModel?> CheckLatestReleaseAsync()
     {

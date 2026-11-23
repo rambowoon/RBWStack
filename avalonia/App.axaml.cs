@@ -70,7 +70,7 @@ public partial class App : Application
             if (!File.Exists(icoPath))
                 icoPath = Path.Combine(AppContext.BaseDirectory, "app.ico");
 
-            _trayService = new Win32TrayService("RBWStack v4.0.1", icoPath);
+            _trayService = new Win32TrayService("RBWStack v4.0.2", icoPath);
             _trayService.LeftClicked += () => Dispatcher.UIThread.Post(ShowMainWindow);
             _trayService.RightClicked += () => Dispatcher.UIThread.Post(() =>
             {
