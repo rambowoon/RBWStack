@@ -178,6 +178,9 @@ public partial class MainViewModel : ObservableObject
         MailService.Start(2525);
         IsMailRunning = MailService.IsRunning;
 
+        _allDownloads = DownloadService.GetLocalInstalledCatalog();
+        ApplyDownloadsFilter();
+
         // Background sync catalog
         _ = SyncDownloadsAsync();
     }

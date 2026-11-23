@@ -45,7 +45,181 @@ public class ScraperDownloadService
         all.AddRange(GetToolsCatalog());
 
         RefreshInstalledStatus(all);
+        MergeInstalledVersions(all);
         return all;
+    }
+
+    private static readonly (string Category, string BaseDestFolder, string SubFolder)[] LocalVersionFolders =
+    {
+        ("PHP", @"bin\php", "php"),
+        ("Node.js", @"bin\node", "node"),
+        ("Apache", @"bin\apache", "apache"),
+        ("Nginx", @"bin\nginx", "nginx"),
+        ("Database", @"bin\mysql", "mysql")
+    };
+
+    /// <summary>
+    /// Quét toàn bộ phiên bản đã cài đặt sẵn trên máy để hiển thị ngay cả khi offline hoặc chưa có trong danh sách online.
+    /// </summary>
+    public List<DownloadItemModel> GetLocalInstalledCatalog()
+    {
+        var list = new List<DownloadItemModel>();
+
+        foreach (var (category, baseDestFolder, subFolder) in LocalVersionFolders)
+        {
+            string root = Path.Combine(PathHelper.BinDir, subFolder);
+            if (!Directory.Exists(root)) continue;
+
+            foreach (var dir in Directory.GetDirectories(root)
+                .OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.EnumerateFileSystemEntries(dir).Any()) continue;
+                string folderName = Path.GetFileName(dir);
+                list.Add(BuildLocalDownloadItem(category, baseDestFolder, folderName));
+            }
+        }
+
+        string pmaDir = Path.Combine(PathHelper.RootDir, "phpmyadmin");
+        if (Directory.Exists(pmaDir) && Directory.EnumerateFileSystemEntries(pmaDir).Any())
+        {
+            list.Add(new DownloadItemModel
+            {
+                Category = "phpMyAdmin",
+                DisplayName = "phpMyAdmin (Đã cài trên máy)",
+                Url = "https://files.phpmyadmin.net/phpMyAdmin/5.2.3/phpMyAdmin-5.2.3-all-languages.zip",
+                BaseDestFolder = "phpmyadmin",
+                FolderName = "",
+                IsInstalled = true
+            });
+        }
+
+        var tools = GetToolsCatalog();
+        RefreshInstalledStatus(tools);
+        list.AddRange(tools.Where(t => t.IsInstalled));
+
+        return list;
+    }
+
+    private void MergeInstalledVersions(List<DownloadItemModel> catalog)
+    {
+        foreach (var (category, baseDestFolder, subFolder) in LocalVersionFolders)
+        {
+            string root = Path.Combine(PathHelper.BinDir, subFolder);
+            if (!Directory.Exists(root)) continue;
+
+            foreach (var dir in Directory.GetDirectories(root)
+                .OrderByDescending(Path.GetFileName, StringComparer.OrdinalIgnoreCase))
+            {
+                if (!Directory.EnumerateFileSystemEntries(dir).Any()) continue;
+                string folderName = Path.GetFileName(dir);
+                bool exists = catalog.Any(x =>
+                    x.Category == category &&
+                    x.FolderName.Equals(folderName, StringComparison.OrdinalIgnoreCase));
+                if (!exists)
+                    catalog.Add(BuildLocalDownloadItem(category, baseDestFolder, folderName));
+            }
+        }
+
+        var ordered = catalog.OrderByDescending(x => x.IsInstalled).ToList();
+        catalog.Clear();
+        catalog.AddRange(ordered);
+    }
+
+    private static DownloadItemModel BuildLocalDownloadItem(string category, string baseDestFolder, string folderName)
+    {
+        string displayName;
+        string url;
+
+        switch (category)
+        {
+            case "PHP":
+            {
+                string ver = Regex.Replace(folderName, @"^php[-_]?", "", RegexOptions.IgnoreCase);
+                displayName = $"PHP {ver} (Đã cài trên máy)";
+                url = "https://windows.php.net/downloads/releases/archives/";
+                break;
+            }
+            case "Node.js":
+            {
+                string ver = Regex.Replace(folderName, @"^node[-_]?", "", RegexOptions.IgnoreCase);
+                if (!ver.StartsWith("v", StringComparison.OrdinalIgnoreCase)) ver = "v" + ver;
+                displayName = $"Node.js {ver} (Win x64)";
+                url = $"https://nodejs.org/dist/{ver}/node-{ver}-win-x64.zip";
+                break;
+            }
+            case "Apache":
+            {
+                string ver = Regex.Replace(folderName, @"^(httpd|apache)[-_]?", "", RegexOptions.IgnoreCase);
+                displayName = $"Apache httpd {ver} (Win64)";
+                url = "https://www.apachelounge.com/download/";
+                break;
+            }
+            case "Nginx":
+            {
+                string ver = Regex.Replace(folderName, @"^nginx[-_]?", "", RegexOptions.IgnoreCase);
+                displayName = $"Nginx {ver} (Windows)";
+                url = $"https://nginx.org/download/nginx-{ver}.zip";
+                break;
+            }
+            case "Database":
+            {
+                if (folderName.StartsWith("mariadb", StringComparison.OrdinalIgnoreCase))
+                {
+                    string ver = Regex.Replace(folderName, @"^mariadb[-_]?", "", RegexOptions.IgnoreCase);
+                    displayName = $"MariaDB {ver} (Win x64)";
+                    url = $"https://archive.mariadb.org/mariadb-{ver}/winx64-packages/mariadb-{ver}-winx64.zip";
+                }
+                else
+                {
+                    string ver = Regex.Replace(folderName, @"^mysql[-_]?", "", RegexOptions.IgnoreCase);
+                    displayName = $"MySQL {ver} (Oracle)";
+                    url = $"https://downloads.mysql.com/archives/get/p/23/file/mysql-{ver}-winx64.zip";
+                }
+                break;
+            }
+            default:
+                displayName = folderName;
+                url = "";
+                break;
+        }
+
+        return new DownloadItemModel
+        {
+            Category = category,
+            DisplayName = displayName,
+            Url = url,
+            BaseDestFolder = baseDestFolder,
+            FolderName = folderName,
+            IsInstalled = true
+        };
+    }
+
+    private async Task<string> ResolvePhpArchiveUrlAsync(DownloadItemModel item)
+    {
+        if (!item.Url.TrimEnd('/').Equals("https://windows.php.net/downloads/releases/archives", StringComparison.OrdinalIgnoreCase))
+            return item.Url;
+
+        string ver = Regex.Replace(item.FolderName, @"^php[-_]?", "", RegexOptions.IgnoreCase);
+        var sources = new[]
+        {
+            "https://windows.php.net/downloads/releases/archives/",
+            "https://windows.php.net/downloads/releases/"
+        };
+
+        string pattern = $@"href=""(?:[^""]*/)?(php-{Regex.Escape(ver)}(?:-\d+)?-Win32-(?:vs\d+|vc\d+)-x64\.zip)""";
+        foreach (string baseUrl in sources)
+        {
+            try
+            {
+                string html = await _http.GetStringAsync(baseUrl);
+                var m = Regex.Match(html, pattern, RegexOptions.IgnoreCase);
+                if (m.Success)
+                    return baseUrl + m.Groups[1].Value;
+            }
+            catch { }
+        }
+
+        throw new InvalidOperationException($"Không tìm thấy gói tải về cho phiên bản PHP {ver} trên trang chủ.");
     }
 
     public void RefreshInstalledStatus(IEnumerable<DownloadItemModel> items)
@@ -254,10 +428,21 @@ public class ScraperDownloadService
                 : Path.Combine(PathHelper.RootDir, item.BaseDestFolder, item.FolderName);
             Directory.CreateDirectory(destDir);
 
-            bool isExe = item.Url.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+            string downloadUrl = item.Category == "PHP"
+                ? await ResolvePhpArchiveUrlAsync(item)
+                : item.Url;
+
+            if (string.IsNullOrWhiteSpace(downloadUrl) ||
+                (!downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+                 !downloadUrl.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new InvalidOperationException($"Phiên bản {item.DisplayName} chỉ có sẵn trên máy và không có link tải lại trực tiếp.");
+            }
+
+            bool isExe = downloadUrl.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
             string tempFile = Path.Combine(PathHelper.TmpDir, $"dl_{Guid.NewGuid():N}" + (isExe ? ".exe" : ".zip"));
 
-            using (var resp = await _http.GetAsync(item.Url, HttpCompletionOption.ResponseHeadersRead))
+            using (var resp = await _http.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
             {
                 resp.EnsureSuccessStatusCode();
                 long total = resp.Content.Headers.ContentLength ?? -1;
